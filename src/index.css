@@ -2,95 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Legal Professional Color Palette */
+    --background: 220 20% 97%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Navy Blue - Trust & Authority */
+    --primary: 222 47% 20%;
+    --primary-foreground: 40 40% 95%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Warm Gold - Premium & Excellence */
+    --secondary: 40 60% 50%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 10% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Soft Gold Accent */
+    --accent: 40 50% 92%;
+    --accent-foreground: 40 60% 30%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 222 47% 20%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Custom Legal Theme */
+    --navy-deep: 222 47% 14%;
+    --navy-medium: 222 40% 25%;
+    --gold-warm: 40 60% 50%;
+    --gold-light: 40 50% 92%;
+    --gold-dark: 40 60% 35%;
+    --cream: 40 30% 96%;
+    --success: 152 60% 40%;
+    --warning: 38 92% 50%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Gradients */
+    --gradient-navy: linear-gradient(135deg, hsl(222 47% 14%) 0%, hsl(222 40% 25%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(40 60% 50%) 0%, hsl(40 50% 40%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(40 30% 98%) 100%);
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(222 47% 11% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.08), 0 2px 4px -2px hsl(222 47% 11% / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1), 0 4px 6px -4px hsl(222 47% 11% / 0.1);
+    --shadow-gold: 0 4px 14px 0 hsl(40 60% 50% / 0.25);
 
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 222 47% 14%;
+    --sidebar-foreground: 40 40% 95%;
+    --sidebar-primary: 40 60% 50%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 222 40% 22%;
+    --sidebar-accent-foreground: 40 40% 95%;
+    --sidebar-border: 222 30% 25%;
+    --sidebar-ring: 40 60% 50%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 222 47% 8%;
+    --foreground: 40 40% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 222 40% 12%;
+    --card-foreground: 40 40% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 222 40% 12%;
+    --popover-foreground: 40 40% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 40 60% 50%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 222 40% 22%;
+    --secondary-foreground: 40 40% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 222 30% 18%;
+    --muted-foreground: 220 15% 60%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 222 35% 20%;
+    --accent-foreground: 40 50% 85%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 222 30% 20%;
+    --input: 222 30% 20%;
+    --ring: 40 60% 50%;
+
+    --navy-deep: 222 47% 8%;
+    --navy-medium: 222 40% 15%;
+    --gold-warm: 40 60% 55%;
+    --gold-light: 40 40% 20%;
+    --cream: 222 30% 14%;
   }
 }
 
@@ -100,6 +114,131 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .legal-card {
+    @apply bg-card rounded-xl border border-border p-6;
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+  }
+
+  .legal-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .legal-button-primary {
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-300;
+    background: var(--gradient-navy);
+    color: hsl(var(--primary-foreground));
+  }
+
+  .legal-button-primary:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+  }
+
+  .legal-button-gold {
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-300;
+    background: var(--gradient-gold);
+    color: hsl(var(--foreground));
+  }
+
+  .legal-button-gold:hover {
+    box-shadow: var(--shadow-gold);
+    transform: translateY(-1px);
+  }
+
+  .legal-input {
+    @apply w-full px-4 py-3 rounded-lg border border-border bg-background transition-all duration-200;
+  }
+
+  .legal-input:focus {
+    @apply outline-none ring-2 ring-primary/20 border-primary;
+  }
+
+  .sidebar-nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-sidebar-foreground/80;
+  }
+
+  .sidebar-nav-item:hover {
+    @apply bg-sidebar-accent text-sidebar-foreground;
+  }
+
+  .sidebar-nav-item.active {
+    @apply bg-sidebar-accent text-sidebar-primary;
+  }
+
+  .stat-card {
+    @apply legal-card flex flex-col gap-2;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold text-foreground;
+    font-family: 'Playfair Display', serif;
+  }
+
+  .stat-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .ai-message {
+    @apply p-4 rounded-xl max-w-[85%];
+  }
+
+  .ai-message.assistant {
+    @apply bg-accent text-accent-foreground;
+    border-left: 3px solid hsl(var(--gold-warm));
+  }
+
+  .ai-message.user {
+    @apply bg-primary text-primary-foreground ml-auto;
+  }
+
+  .document-card {
+    @apply legal-card cursor-pointer;
+  }
+
+  .document-card:hover {
+    @apply border-primary/30;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 }

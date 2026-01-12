@@ -11,6 +11,7 @@ import { CasesManager } from "@/components/cases/CasesManager";
 import { CalendarView } from "@/components/calendar/CalendarView";
 import { ProfilePage } from "@/components/profile/ProfilePage";
 import { FeatureRequestForm } from "@/components/features/FeatureRequestForm";
+import { IntegrationsPage } from "@/pages/Integrations";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
@@ -52,6 +53,8 @@ const Index = () => {
         return <ProfilePage />;
       case "feature-request":
         return <FeatureRequestForm />;
+      case "integrations":
+        return <IntegrationsPage />;
       default:
         return null;
     }

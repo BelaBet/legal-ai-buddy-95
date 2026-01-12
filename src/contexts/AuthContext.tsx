@@ -13,7 +13,7 @@ interface Profile {
 }
 
 interface UserRole {
-  role: "admin" | "user" | "premium";
+  role: "admin" | "user" | "premium" | "supremo";
 }
 
 interface AuthContextType {
@@ -26,7 +26,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<{ error: Error | null }>;
-  hasRole: (role: "admin" | "user" | "premium") => boolean;
+  hasRole: (role: "admin" | "user" | "premium" | "supremo") => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const hasRole = (role: "admin" | "user" | "premium") => {
+  const hasRole = (role: "admin" | "user" | "premium" | "supremo") => {
     return roles.some((r) => r.role === role);
   };
 

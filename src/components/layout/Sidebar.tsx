@@ -9,7 +9,9 @@ import {
   Scale,
   User,
   Lightbulb,
-  LogOut
+  LogOut,
+  Link2,
+  Crown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,11 +41,13 @@ const navItems = [
 ];
 
 const extraItems = [
+  { id: "integrations", label: "Integrações", icon: Link2, premium: true },
   { id: "feature-request", label: "Solicitar Funcionalidade", icon: Lightbulb },
 ];
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, hasRole } = useAuth();
+  const isSupremo = hasRole("supremo");
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return user?.email?.charAt(0).toUpperCase() || "U";
@@ -95,11 +99,15 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             className={cn(
               "sidebar-nav-item w-full",
               activeTab === item.id && "active",
-              item.id === "feature-request" && "text-amber-500 hover:text-amber-400"
+              item.id === "feature-request" && "text-amber-500 hover:text-amber-400",
+              item.premium && "text-purple-400 hover:text-purple-300"
             )}
           >
             <item.icon className="w-5 h-5" />
             <span className="font-medium">{item.label}</span>
+            {item.premium && isSupremo && (
+              <Crown className="w-3 h-3 text-purple-400 ml-auto" />
+            )}
           </button>
         ))}
       </nav>

@@ -118,14 +118,91 @@ export type Database = {
         }
         Relationships: []
       }
+      event_attachments: {
+        Row: {
+          created_at: string
+          event_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_attachments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_participants: {
+        Row: {
+          created_at: string
+          email: string
+          event_id: string
+          id: string
+          invite_sent: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          event_id: string
+          id?: string
+          invite_sent?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          event_id?: string
+          id?: string
+          invite_sent?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           case_id: string | null
           created_at: string
+          description: string | null
           event_date: string
           event_time: string
           id: string
           location: string | null
+          meeting_link: string | null
+          notification_enabled: boolean
+          notification_minutes_before: number | null
           title: string
           type: string
           user_id: string | null
@@ -133,10 +210,14 @@ export type Database = {
         Insert: {
           case_id?: string | null
           created_at?: string
+          description?: string | null
           event_date: string
           event_time: string
           id?: string
           location?: string | null
+          meeting_link?: string | null
+          notification_enabled?: boolean
+          notification_minutes_before?: number | null
           title: string
           type?: string
           user_id?: string | null
@@ -144,10 +225,14 @@ export type Database = {
         Update: {
           case_id?: string | null
           created_at?: string
+          description?: string | null
           event_date?: string
           event_time?: string
           id?: string
           location?: string | null
+          meeting_link?: string | null
+          notification_enabled?: boolean
+          notification_minutes_before?: number | null
           title?: string
           type?: string
           user_id?: string | null

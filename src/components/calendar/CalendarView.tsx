@@ -1,6 +1,21 @@
-import { useState } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Clock, MapPin, X } from "lucide-react";
-import { useEvents, useCreateEvent, useDeleteEvent, CalendarEvent } from "@/hooks/useEvents";
+import { useState, useRef } from "react";
+import { 
+  Calendar, 
+  ChevronLeft, 
+  ChevronRight, 
+  Plus, 
+  Clock, 
+  MapPin, 
+  X, 
+  Users, 
+  Link2, 
+  Bell, 
+  Upload, 
+  Trash2,
+  Send,
+  FileText
+} from "lucide-react";
+import { useEvents, useCreateEvent, useDeleteEvent, useSendInvites, CalendarEvent, CreateEventData } from "@/hooks/useEvents";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -9,6 +24,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 const eventTypeConfig = {
   hearing: { label: "Audiência", class: "bg-primary/10 text-primary border-l-primary" },
@@ -21,20 +41,34 @@ const months = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
 
+interface Participant {
+  name: string;
+  email: string;
+}
+
 export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({
+  const [newEvent, setNewEvent] = useState<CreateEventData>({
     title: "",
+    description: "",
     event_date: format(new Date(), "yyyy-MM-dd"),
     event_time: "09:00",
     type: "meeting",
     location: "",
+    meeting_link: "",
+    notification_enabled: false,
+    notification_minutes_before: 30,
+    participants: [],
+    files: [],
   });
+  const [newParticipant, setNewParticipant] = useState<Participant>({ name: "", email: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: events = [], isLoading } = useEvents();
   const createEvent = useCreateEvent();
   const deleteEvent = useDeleteEvent();
+  const sendInvites = useSendInvites();
 
   const getDaysInMonth = () => {
     const start = startOfMonth(currentDate);
@@ -63,18 +97,92 @@ export function CalendarView() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
+  const handleAddParticipant = () => {
+    if (!newParticipant.name || !newParticipant.email) {
+      toast.error("Preencha nome e email do participante");
+      return;
+    }
+    
+    if (!newParticipant.email.includes("@")) {
+      toast.error("Email inválido");
+      return;
+    }
+
+    setNewEvent({
+      ...newEvent,
+      participants: [...(newEvent.participants || []), { ...newParticipant }],
+    });
+    setNewParticipant({ name: "", email: "" });
+  };
+
+  const handleRemoveParticipant = (index: number) => {
+    const updated = [...(newEvent.participants || [])];
+    updated.splice(index, 1);
+    setNewEvent({ ...newEvent, participants: updated });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      setNewEvent({
+        ...newEvent,
+        files: [...(newEvent.files || []), ...fileArray],
+      });
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    const updated = [...(newEvent.files || [])];
+    updated.splice(index, 1);
+    setNewEvent({ ...newEvent, files: updated });
+  };
+
+  const generateMeetingLink = () => {
+    const roomId = Math.random().toString(36).substring(2, 15);
+    const link = `https://meet.jit.si/lexia-${roomId}`;
+    setNewEvent({ ...newEvent, meeting_link: link });
+    toast.success("Link de reunião gerado!");
+  };
+
   const handleCreateEvent = async () => {
     if (!newEvent.title || !newEvent.event_date || !newEvent.event_time) return;
     
     await createEvent.mutateAsync(newEvent);
     setNewEvent({
       title: "",
+      description: "",
       event_date: format(new Date(), "yyyy-MM-dd"),
       event_time: "09:00",
       type: "meeting",
       location: "",
+      meeting_link: "",
+      notification_enabled: false,
+      notification_minutes_before: 30,
+      participants: [],
+      files: [],
     });
     setIsDialogOpen(false);
+  };
+
+  const handleSendInvites = async (event: CalendarEvent) => {
+    if (!event.participants || event.participants.length === 0) {
+      toast.error("Este evento não possui participantes");
+      return;
+    }
+
+    const pendingParticipants = event.participants.filter((p) => !p.invite_sent);
+    if (pendingParticipants.length === 0) {
+      toast.info("Todos os convites já foram enviados");
+      return;
+    }
+
+    await sendInvites.mutateAsync({ eventId: event.id, participants: pendingParticipants });
+  };
+
+  const copyMeetingLink = (link: string) => {
+    navigator.clipboard.writeText(link);
+    toast.success("Link copiado para a área de transferência!");
   };
 
   const days = getDaysInMonth();
@@ -211,12 +319,33 @@ export function CalendarView() {
                   className={`p-4 rounded-lg border-l-4 ${eventTypeConfig[event.type as keyof typeof eventTypeConfig]?.class || eventTypeConfig.meeting.class} fade-in group relative`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <button
-                    onClick={() => deleteEvent.mutate(event.id)}
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {event.participants && event.participants.length > 0 && (
+                      <button
+                        onClick={() => handleSendInvites(event)}
+                        className="p-1 hover:bg-muted rounded"
+                        title="Enviar convites"
+                      >
+                        <Send className="w-3 h-3" />
+                      </button>
+                    )}
+                    {event.meeting_link && (
+                      <button
+                        onClick={() => copyMeetingLink(event.meeting_link!)}
+                        className="p-1 hover:bg-muted rounded"
+                        title="Copiar link"
+                      >
+                        <Link2 className="w-3 h-3" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteEvent.mutate(event.id)}
+                      className="p-1 hover:bg-muted rounded"
+                      title="Excluir"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-xs font-medium">
                       {eventTypeConfig[event.type as keyof typeof eventTypeConfig]?.label || event.type}
@@ -226,7 +355,7 @@ export function CalendarView() {
                     </span>
                   </div>
                   <p className="font-medium text-sm mb-2">{event.title}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {event.event_time}
@@ -235,6 +364,23 @@ export function CalendarView() {
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
                         {event.location}
+                      </span>
+                    )}
+                    {event.participants && event.participants.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        {event.participants.length}
+                      </span>
+                    )}
+                    {event.notification_enabled && (
+                      <span className="flex items-center gap-1">
+                        <Bell className="w-3 h-3" />
+                      </span>
+                    )}
+                    {event.attachments && event.attachments.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <FileText className="w-3 h-3" />
+                        {event.attachments.length}
                       </span>
                     )}
                   </div>
@@ -247,63 +393,235 @@ export function CalendarView() {
 
       {/* New Event Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif">Novo Evento</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Título</label>
-              <input
-                type="text"
-                value={newEvent.title}
-                onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                placeholder="Audiência de Conciliação"
-                className="legal-input"
+          <div className="space-y-6 mt-4">
+            {/* Basic Info */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Título *</label>
+                <Input
+                  type="text"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="Audiência de Conciliação"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Descrição</label>
+                <textarea
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  placeholder="Detalhes do evento..."
+                  className="legal-input min-h-[80px] resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Data *</label>
+                  <Input
+                    type="date"
+                    value={newEvent.event_date}
+                    onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Horário *</label>
+                  <Input
+                    type="time"
+                    value={newEvent.event_time}
+                    onChange={(e) => setNewEvent({ ...newEvent, event_time: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Tipo</label>
+                  <select
+                    value={newEvent.type}
+                    onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value })}
+                    className="legal-input"
+                  >
+                    <option value="meeting">Reunião</option>
+                    <option value="hearing">Audiência</option>
+                    <option value="deadline">Prazo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Local</label>
+                  <Input
+                    type="text"
+                    value={newEvent.location}
+                    onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
+                    placeholder="Fórum, escritório..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Meeting Link */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Link2 className="w-4 h-4" />
+                  Link da Reunião
+                </label>
+                <button
+                  type="button"
+                  onClick={generateMeetingLink}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Gerar link automático
+                </button>
+              </div>
+              <Input
+                type="url"
+                value={newEvent.meeting_link}
+                onChange={(e) => setNewEvent({ ...newEvent, meeting_link: e.target.value })}
+                placeholder="https://meet.example.com/..."
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Data</label>
-                <input
-                  type="date"
-                  value={newEvent.event_date}
-                  onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
-                  className="legal-input"
+
+            {/* Participants */}
+            <div className="border-t pt-4">
+              <label className="text-sm font-medium flex items-center gap-2 mb-3">
+                <Users className="w-4 h-4" />
+                Participantes
+              </label>
+              
+              <div className="flex gap-2 mb-3">
+                <Input
+                  type="text"
+                  value={newParticipant.name}
+                  onChange={(e) => setNewParticipant({ ...newParticipant, name: e.target.value })}
+                  placeholder="Nome"
+                  className="flex-1"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Horário</label>
-                <input
-                  type="time"
-                  value={newEvent.event_time}
-                  onChange={(e) => setNewEvent({ ...newEvent, event_time: e.target.value })}
-                  className="legal-input"
+                <Input
+                  type="email"
+                  value={newParticipant.email}
+                  onChange={(e) => setNewParticipant({ ...newParticipant, email: e.target.value })}
+                  placeholder="Email"
+                  className="flex-1"
                 />
+                <button
+                  type="button"
+                  onClick={handleAddParticipant}
+                  className="px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
               </div>
+
+              {newEvent.participants && newEvent.participants.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {newEvent.participants.map((p, index) => (
+                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                      {p.name} ({p.email})
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveParticipant(index)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Tipo</label>
-              <select
-                value={newEvent.type}
-                onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value })}
-                className="legal-input"
+
+            {/* File Upload */}
+            <div className="border-t pt-4">
+              <label className="text-sm font-medium flex items-center gap-2 mb-3">
+                <Upload className="w-4 h-4" />
+                Anexos
+              </label>
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center hover:border-primary/50 transition-colors"
               >
-                <option value="meeting">Reunião</option>
-                <option value="hearing">Audiência</option>
-                <option value="deadline">Prazo</option>
-              </select>
+                <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Clique para selecionar arquivos
+                </p>
+              </button>
+
+              {newEvent.files && newEvent.files.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {newEvent.files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({(file.size / 1024).toFixed(1)} KB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(index)}
+                        className="p-1 hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Local (opcional)</label>
-              <input
-                type="text"
-                value={newEvent.location}
-                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-                placeholder="Fórum, escritório..."
-                className="legal-input"
-              />
+
+            {/* Notification */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Bell className="w-4 h-4" />
+                  Notificação
+                </label>
+                <Switch
+                  checked={newEvent.notification_enabled}
+                  onCheckedChange={(checked) => 
+                    setNewEvent({ ...newEvent, notification_enabled: checked })
+                  }
+                />
+              </div>
+              
+              {newEvent.notification_enabled && (
+                <div className="mt-3">
+                  <Label className="text-sm text-muted-foreground">Lembrar antes</Label>
+                  <select
+                    value={newEvent.notification_minutes_before}
+                    onChange={(e) => 
+                      setNewEvent({ ...newEvent, notification_minutes_before: parseInt(e.target.value) })
+                    }
+                    className="legal-input mt-1"
+                  >
+                    <option value={15}>15 minutos</option>
+                    <option value={30}>30 minutos</option>
+                    <option value={60}>1 hora</option>
+                    <option value={120}>2 horas</option>
+                    <option value={1440}>1 dia</option>
+                  </select>
+                </div>
+              )}
             </div>
+
+            {/* Submit */}
             <button
               onClick={handleCreateEvent}
               disabled={!newEvent.title || createEvent.isPending}

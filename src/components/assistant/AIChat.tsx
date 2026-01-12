@@ -1,12 +1,20 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, FileText, BookOpen, Lightbulb, Scale, AlertCircle } from "lucide-react";
+import { Send, Sparkles, FileText, BookOpen, Lightbulb, Scale, Paperclip, X, Image, File } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface Attachment {
+  id: string;
+  file: File;
+  preview?: string;
+  type: "image" | "pdf" | "document";
+}
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  attachments?: Attachment[];
 }
 
 const suggestions = [
@@ -29,7 +37,9 @@ export function AIChat() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,18 +49,61 @@ export function AIChat() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
 
+    const newAttachments: Attachment[] = [];
+    
+    Array.from(files).forEach((file) => {
+      const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      let type: Attachment["type"] = "document";
+      let preview: string | undefined;
+
+      if (file.type.startsWith("image/")) {
+        type = "image";
+        preview = URL.createObjectURL(file);
+      } else if (file.type === "application/pdf") {
+        type = "pdf";
+      }
+
+      newAttachments.push({ id, file, preview, type });
+    });
+
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => {
+      const attachment = prev.find((a) => a.id === id);
+      if (attachment?.preview) {
+        URL.revokeObjectURL(attachment.preview);
+      }
+      return prev.filter((a) => a.id !== id);
+    });
+  };
+
+  const handleSend = async () => {
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
+
+    const currentAttachments = [...attachments];
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: input || (currentAttachments.length > 0 ? `[${currentAttachments.length} anexo(s)]` : ""),
       timestamp: new Date(),
+      attachments: currentAttachments,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setAttachments([]);
     setIsLoading(true);
 
     let assistantContent = "";
@@ -77,7 +130,30 @@ export function AIChat() {
     };
 
     try {
-      const allMessages = [...messages.filter(m => m.id !== "1"), userMessage].map((m) => ({
+      // Process attachments - convert to base64 for images
+      let attachmentContext = "";
+      if (currentAttachments.length > 0) {
+        const attachmentDescriptions = await Promise.all(
+          currentAttachments.map(async (att) => {
+            if (att.type === "image" && att.preview) {
+              try {
+                const base64 = await fileToBase64(att.file);
+                return `[Imagem anexada: ${att.file.name}]\n[Base64: ${base64}]`;
+              } catch {
+                return `[Imagem anexada: ${att.file.name}]`;
+              }
+            } else if (att.type === "pdf") {
+              return `[PDF anexado: ${att.file.name}]`;
+            }
+            return `[Documento anexado: ${att.file.name}]`;
+          })
+        );
+        attachmentContext = "\n\nAnexos:\n" + attachmentDescriptions.join("\n");
+      }
+
+      const messageContent = input + attachmentContext;
+      
+      const allMessages = [...messages.filter(m => m.id !== "1"), { ...userMessage, content: messageContent }].map((m) => ({
         role: m.role,
         content: m.content,
       }));
@@ -193,6 +269,26 @@ export function AIChat() {
     setInput(text);
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+    });
+  };
+
+  const getAttachmentIcon = (type: Attachment["type"]) => {
+    switch (type) {
+      case "image":
+        return <Image className="w-4 h-4" />;
+      case "pdf":
+        return <FileText className="w-4 h-4" />;
+      default:
+        return <File className="w-4 h-4" />;
+    }
+  };
+
   const renderMarkdown = (text: string) => {
     return text.split('\n').map((line, i) => {
       // Headers
@@ -243,6 +339,27 @@ export function AIChat() {
             key={message.id}
             className={`ai-message ${message.role} fade-in`}
           >
+            {/* Attachments preview */}
+            {message.attachments && message.attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {message.attachments.map((att) => (
+                  <div key={att.id} className="relative">
+                    {att.type === "image" && att.preview ? (
+                      <img
+                        src={att.preview}
+                        alt={att.file.name}
+                        className="w-20 h-20 object-cover rounded-lg border border-border"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                        {getAttachmentIcon(att.type)}
+                        <span className="text-xs truncate max-w-[100px]">{att.file.name}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="whitespace-pre-wrap text-sm leading-relaxed">
               {renderMarkdown(message.content)}
             </div>
@@ -279,9 +396,61 @@ export function AIChat() {
         </div>
       )}
 
+      {/* Attachments Preview */}
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2 p-3 bg-muted/50 rounded-lg">
+          {attachments.map((att) => (
+            <div key={att.id} className="relative group">
+              {att.type === "image" && att.preview ? (
+                <div className="relative">
+                  <img
+                    src={att.preview}
+                    alt={att.file.name}
+                    className="w-16 h-16 object-cover rounded-lg border border-border"
+                  />
+                  <button
+                    onClick={() => removeAttachment(att.id)}
+                    className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative flex items-center gap-2 px-3 py-2 bg-background rounded-lg border border-border">
+                  {getAttachmentIcon(att.type)}
+                  <span className="text-xs truncate max-w-[80px]">{att.file.name}</span>
+                  <button
+                    onClick={() => removeAttachment(att.id)}
+                    className="w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
       <div className="legal-card !p-4">
         <div className="flex items-center gap-3">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            accept="image/*,.pdf,.doc,.docx,.txt"
+            multiple
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50"
+            title="Anexar arquivo"
+          >
+            <Paperclip className="w-5 h-5 text-muted-foreground" />
+          </button>
           <input
             type="text"
             value={input}
@@ -293,7 +462,7 @@ export function AIChat() {
           />
           <button
             onClick={handleSend}
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || (!input.trim() && attachments.length === 0)}
             className="legal-button-gold !px-4 !py-3 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />

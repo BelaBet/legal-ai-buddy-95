@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   Calendar, 
   ChevronLeft, 
@@ -10,12 +10,15 @@ import {
   Users, 
   Link2, 
   Bell, 
+  BellOff,
+  BellRing,
   Upload, 
   Trash2,
   Send,
   FileText
 } from "lucide-react";
 import { useEvents, useCreateEvent, useDeleteEvent, useSendInvites, CalendarEvent, CreateEventData } from "@/hooks/useEvents";
+import { useNotifications } from "@/hooks/useNotifications";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -69,6 +72,27 @@ export function CalendarView() {
   const createEvent = useCreateEvent();
   const deleteEvent = useDeleteEvent();
   const sendInvites = useSendInvites();
+  const { 
+    requestPermission, 
+    scheduleAllNotifications, 
+    isSupported: notificationsSupported,
+    permission: notificationPermission 
+  } = useNotifications();
+
+  // Schedule notifications when events change
+  useEffect(() => {
+    if (events.length > 0 && notificationPermission === "granted") {
+      scheduleAllNotifications(events);
+    }
+  }, [events, scheduleAllNotifications, notificationPermission]);
+
+  const handleEnableNotifications = async () => {
+    const granted = await requestPermission();
+    if (granted && events.length > 0) {
+      scheduleAllNotifications(events);
+      toast.success("Notificações ativadas! Você receberá lembretes dos eventos.");
+    }
+  };
 
   const getDaysInMonth = () => {
     const start = startOfMonth(currentDate);
@@ -207,13 +231,31 @@ export function CalendarView() {
               <p className="text-muted-foreground">Compromissos e prazos</p>
             </div>
           </div>
-          <button 
-            onClick={() => setIsDialogOpen(true)}
-            className="legal-button-primary flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Novo Evento
-          </button>
+          <div className="flex items-center gap-2">
+            {notificationsSupported && notificationPermission !== "granted" && (
+              <button 
+                onClick={handleEnableNotifications}
+                className="legal-button-secondary flex items-center gap-2"
+                title="Habilitar notificações"
+              >
+                <BellOff className="w-5 h-5" />
+                Ativar Notificações
+              </button>
+            )}
+            {notificationPermission === "granted" && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground px-3 py-2 bg-success/10 rounded-lg">
+                <BellRing className="w-4 h-4 text-success" />
+                <span className="text-success">Notificações ativas</span>
+              </div>
+            )}
+            <button 
+              onClick={() => setIsDialogOpen(true)}
+              className="legal-button-primary flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Novo Evento
+            </button>
+          </div>
         </div>
       </div>
 

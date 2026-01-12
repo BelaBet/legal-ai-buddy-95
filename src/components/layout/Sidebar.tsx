@@ -15,7 +15,10 @@ import {
   Crown,
   ShieldCheck,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Bell,
+  CreditCard,
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,8 +53,11 @@ const navItems = [
 ];
 
 const settingsSubItems = [
+  { id: "settings", label: "Preferências", icon: Settings },
   { id: "integrations", label: "Integrações", icon: Link2, premium: true },
-  { id: "feature-request", label: "Solicitar Funcionalidade", icon: Lightbulb },
+  { id: "notifications", label: "Notificações", icon: Bell },
+  { id: "billing", label: "Planos e Pagamentos", icon: CreditCard },
+  { id: "feature-request", label: "Solicitar Funcionalidade", icon: Lightbulb, highlight: true },
 ];
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
@@ -59,7 +65,8 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const isSupremo = hasRole("supremo");
   const isAdmin = hasRole("admin");
   
-  const isSettingsTab = ["integrations", "feature-request"].includes(activeTab);
+  const settingsTabs = ["settings", "integrations", "notifications", "billing", "feature-request"];
+  const isSettingsTab = settingsTabs.includes(activeTab);
   const [settingsOpen, setSettingsOpen] = useState(isSettingsTab);
 
   const getInitials = (name: string | null | undefined) => {
@@ -105,6 +112,18 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
         <Separator className="my-4 bg-sidebar-border" />
 
+        {/* Sales Page - visible to all */}
+        <button
+          onClick={() => onTabChange("sales")}
+          className={cn(
+            "sidebar-nav-item w-full text-emerald-400 hover:text-emerald-300",
+            activeTab === "sales" && "active"
+          )}
+        >
+          <ShoppingBag className="w-5 h-5" />
+          <span className="font-medium">Planos</span>
+        </button>
+
         {/* Settings with submenu */}
         <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
           <CollapsibleTrigger asChild>
@@ -131,7 +150,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                 className={cn(
                   "sidebar-nav-item w-full text-sm",
                   activeTab === item.id && "active",
-                  item.id === "feature-request" && "text-amber-500 hover:text-amber-400",
+                  item.highlight && "text-amber-500 hover:text-amber-400",
                   item.premium && "text-purple-400 hover:text-purple-300"
                 )}
               >
@@ -201,6 +220,10 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             <DropdownMenuItem onClick={() => onTabChange("profile")}>
               <User className="mr-2 h-4 w-4" />
               Ver Perfil
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onTabChange("settings")}>
+              <Settings className="mr-2 h-4 w-4" />
+              Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut} className="text-destructive">

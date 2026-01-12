@@ -13,6 +13,7 @@ import { ProfilePage } from "@/components/profile/ProfilePage";
 import { FeatureRequestForm } from "@/components/features/FeatureRequestForm";
 import { IntegrationsPage } from "@/pages/Integrations";
 import { AdminUsersPage } from "@/components/admin/AdminUsersPage";
+import { SettingsPage } from "@/components/settings/SettingsPage";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
@@ -58,6 +59,12 @@ const Index = () => {
         return <IntegrationsPage />;
       case "admin":
         return <AdminUsersPage />;
+      case "settings":
+      case "notifications":
+      case "billing":
+        return <SettingsPage />;
+      case "sales":
+        return <div className="text-center py-20 text-muted-foreground">Página de Vendas em construção...</div>;
       default:
         return null;
     }

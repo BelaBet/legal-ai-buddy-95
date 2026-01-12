@@ -14,7 +14,154 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cases: {
+        Row: {
+          case_number: string
+          client: string
+          created_at: string
+          id: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          case_number: string
+          client: string
+          created_at?: string
+          id?: string
+          status?: string
+          title: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          case_number?: string
+          client?: string
+          created_at?: string
+          id?: string
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      chat_history: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          id: string
+          messages: Json
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          messages?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          messages?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_history_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          title: string
+          type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      events: {
+        Row: {
+          case_id: string | null
+          created_at: string
+          event_date: string
+          event_time: string
+          id: string
+          location: string | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          case_id?: string | null
+          created_at?: string
+          event_date: string
+          event_time: string
+          id?: string
+          location?: string | null
+          title: string
+          type?: string
+          user_id?: string | null
+        }
+        Update: {
+          case_id?: string | null
+          created_at?: string
+          event_date?: string
+          event_time?: string
+          id?: string
+          location?: string | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

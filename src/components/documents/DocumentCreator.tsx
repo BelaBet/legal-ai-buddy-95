@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { FileText, Plus, Wand2, Save, Download, ChevronRight } from "lucide-react";
+import { useCreateDocument, useUpdateDocument, Document } from "@/hooks/useDocuments";
+import { toast } from "sonner";
 
 const documentTypes = [
   { id: "peticao", name: "Petição Inicial", description: "Crie petições personalizadas" },
@@ -10,28 +12,10 @@ const documentTypes = [
   { id: "notificacao", name: "Notificação", description: "Notificações extrajudiciais" },
 ];
 
-export function DocumentCreator() {
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [documentContent, setDocumentContent] = useState("");
-  const [title, setTitle] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+const templates: Record<string, string> = {
+  peticao: `EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA ___ VARA CÍVEL DA COMARCA DE ___
 
-  const handleTypeSelect = (typeId: string) => {
-    setSelectedType(typeId);
-    setTitle("");
-    setDocumentContent("");
-  };
-
-  const generateWithAI = () => {
-    if (!selectedType || !title) return;
-    
-    setIsGenerating(true);
-    
-    setTimeout(() => {
-      const templates: Record<string, string> = {
-        peticao: `EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA ___ VARA CÍVEL DA COMARCA DE ___
-
-${title.toUpperCase()}
+[TÍTULO]
 
 [NOME DO AUTOR], [nacionalidade], [estado civil], [profissão], portador(a) do RG nº [número] e inscrito(a) no CPF sob o nº [número], residente e domiciliado(a) em [endereço completo], vem, respeitosamente, à presença de Vossa Excelência, por seu(sua) advogado(a) que esta subscreve (procuração em anexo), propor a presente
 
@@ -61,8 +45,8 @@ Pede deferimento.
 _______________________________
 [Nome do Advogado]
 OAB/[UF] nº [número]`,
-        
-        contrato: `CONTRATO DE ${title.toUpperCase()}
+  
+  contrato: `CONTRATO DE [TÍTULO]
 
 Pelo presente instrumento particular, as partes a seguir qualificadas:
 
@@ -99,8 +83,8 @@ CONTRATANTE
 
 _______________________________
 CONTRATADO(A)`,
-        
-        procuracao: `PROCURAÇÃO AD JUDICIA
+  
+  procuracao: `PROCURAÇÃO AD JUDICIA
 
 OUTORGANTE: [Nome completo], [nacionalidade], [estado civil], [profissão], portador(a) da Cédula de Identidade RG nº [número] e inscrito(a) no CPF sob o nº [número], residente e domiciliado(a) em [endereço completo].
 
@@ -112,11 +96,159 @@ PODERES: O(A) outorgante nomeia e constitui o(a) outorgado(a) seu(sua) bastante 
 
 _______________________________
 [Nome do Outorgante]`,
-      };
 
-      setDocumentContent(templates[selectedType] || "Documento em construção...");
-      setIsGenerating(false);
-    }, 1500);
+  recurso: `EXCELENTÍSSIMO(A) SENHOR(A) DOUTOR(A) JUIZ(A) DE DIREITO DA ___ VARA ___ DA COMARCA DE ___
+
+Processo nº: [número do processo]
+
+[NOME DO RECORRENTE], já qualificado nos autos do processo em epígrafe, por seu advogado que esta subscreve, vem, respeitosamente, à presença de Vossa Excelência, interpor o presente
+
+RECURSO DE [TIPO DE RECURSO]
+
+com fundamento no artigo [número] do [CPC/CPP/CLT], pelos fatos e fundamentos a seguir expostos:
+
+I - TEMPESTIVIDADE
+O presente recurso é tempestivo, tendo sido interposto dentro do prazo legal de [X] dias.
+
+II - DOS FATOS
+[Resumo dos fatos e da decisão recorrida]
+
+III - DAS RAZÕES DO INCONFORMISMO
+[Fundamentação do recurso]
+
+IV - DO PEDIDO
+Ante o exposto, requer seja conhecido e provido o presente recurso, para que seja reformada a r. decisão recorrida.
+
+Termos em que,
+Pede deferimento.
+
+[Cidade], [data].
+
+_______________________________
+[Nome do Advogado]
+OAB/[UF] nº [número]`,
+
+  parecer: `PARECER JURÍDICO
+
+CONSULENTE: [Nome/Razão Social]
+ASSUNTO: [Título]
+DATA: [Data]
+
+I - DA CONSULTA
+[Descrição da questão jurídica apresentada]
+
+II - DOS FATOS
+[Narrativa dos fatos relevantes]
+
+III - DO DIREITO APLICÁVEL
+[Análise da legislação, doutrina e jurisprudência]
+
+IV - DA CONCLUSÃO
+[Parecer conclusivo sobre a questão]
+
+V - RECOMENDAÇÕES
+[Sugestões de procedimentos a serem adotados]
+
+É o parecer.
+
+[Cidade], [data].
+
+_______________________________
+[Nome do Advogado]
+OAB/[UF] nº [número]`,
+
+  notificacao: `NOTIFICAÇÃO EXTRAJUDICIAL
+
+NOTIFICANTE: [Nome/Razão Social], [qualificação completa], residente/com sede em [endereço completo].
+
+NOTIFICADO(A): [Nome/Razão Social], [qualificação completa], residente/com sede em [endereço completo].
+
+Prezado(a) Senhor(a),
+
+Pelo presente instrumento, e na melhor forma de direito, venho NOTIFICAR Vossa Senhoria para os seguintes fins:
+
+[Descrição do motivo da notificação e providências requeridas]
+
+Outrossim, fica Vossa Senhoria desde já notificado(a) para, no prazo de [X] dias, [ação requerida], sob pena de [consequências legais].
+
+A presente notificação visa resguardar os direitos do(a) NOTIFICANTE, servindo como prova em eventual ação judicial.
+
+Sem mais para o momento, subscrevo-me.
+
+[Cidade], [data].
+
+_______________________________
+[Nome do Notificante]
+
+RECEBI EM ___/___/______
+
+_______________________________
+[Nome do Notificado]`,
+};
+
+export function DocumentCreator() {
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [documentContent, setDocumentContent] = useState("");
+  const [title, setTitle] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
+
+  const createDocument = useCreateDocument();
+  const updateDocument = useUpdateDocument();
+
+  const handleTypeSelect = (typeId: string) => {
+    setSelectedType(typeId);
+    setTitle("");
+    setDocumentContent("");
+    setCurrentDocId(null);
+  };
+
+  const generateWithAI = async () => {
+    if (!selectedType || !title) return;
+    
+    setIsGenerating(true);
+    
+    const template = templates[selectedType] || "Documento em construção...";
+    const content = template.replace("[TÍTULO]", title.toUpperCase());
+    
+    setDocumentContent(content);
+    setIsGenerating(false);
+  };
+
+  const saveDocument = async () => {
+    if (!title || !documentContent || !selectedType) return;
+
+    const typeName = documentTypes.find(t => t.id === selectedType)?.name || selectedType;
+
+    if (currentDocId) {
+      await updateDocument.mutateAsync({
+        id: currentDocId,
+        title,
+        content: documentContent,
+        status: "draft",
+      });
+    } else {
+      const result = await createDocument.mutateAsync({
+        title,
+        type: typeName,
+        content: documentContent,
+        status: "draft",
+      });
+      setCurrentDocId(result.id);
+    }
+  };
+
+  const downloadDocument = () => {
+    if (!documentContent || !title) return;
+
+    const blob = new Blob([documentContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.replace(/\s+/g, "_")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Documento baixado!");
   };
 
   return (
@@ -129,7 +261,7 @@ _______________________________
           </div>
           <div>
             <h2 className="font-serif text-2xl font-semibold">Criar Documento</h2>
-            <p className="text-muted-foreground">Use IA para gerar documentos jurídicos</p>
+            <p className="text-muted-foreground">Use modelos para gerar documentos jurídicos</p>
           </div>
         </div>
       </div>
@@ -188,7 +320,7 @@ _______________________________
                   ) : (
                     <>
                       <Wand2 className="w-5 h-5" />
-                      Gerar com IA
+                      Gerar Modelo
                     </>
                   )}
                 </button>
@@ -199,11 +331,18 @@ _______________________________
                   <label className="block text-sm font-medium">Conteúdo</label>
                   {documentContent && (
                     <div className="flex gap-2">
-                      <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      <button 
+                        onClick={saveDocument}
+                        disabled={createDocument.isPending || updateDocument.isPending}
+                        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                      >
                         <Save className="w-4 h-4" />
-                        Salvar
+                        {createDocument.isPending || updateDocument.isPending ? "Salvando..." : "Salvar"}
                       </button>
-                      <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      <button 
+                        onClick={downloadDocument}
+                        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
                         <Download className="w-4 h-4" />
                         Exportar
                       </button>

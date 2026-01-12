@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, FileText, X, Sparkles, Copy, Download, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload, FileText, X, Sparkles, Copy, Download, CheckCircle, Send, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 
@@ -18,6 +18,11 @@ interface ExtractionProgress {
   totalPages: number;
 }
 
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export function PDFReader() {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -26,7 +31,11 @@ export function PDFReader() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [extractionProgress, setExtractionProgress] = useState<ExtractionProgress | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [questionInput, setQuestionInput] = useState("");
+  const [isAskingQuestion, setIsAskingQuestion] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -119,8 +128,121 @@ export function PDFReader() {
     setUploadedFile(null);
     setSummary("");
     setExtractedText("");
+    setChatMessages([]);
+    setQuestionInput("");
   };
 
+  const askQuestion = async () => {
+    if (!questionInput.trim() || !extractedText || isAskingQuestion) return;
+
+    const userQuestion = questionInput.trim();
+    setQuestionInput("");
+    setChatMessages(prev => [...prev, { role: "user", content: userQuestion }]);
+    setIsAskingQuestion(true);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/legal-chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                role: "system",
+                content: `Você está analisando o documento "${uploadedFile?.name}". Use o texto do documento para responder perguntas específicas. Seja preciso e cite trechos relevantes quando possível.
+
+TEXTO DO DOCUMENTO:
+${extractedText.substring(0, 25000)}${extractedText.length > 25000 ? "\n\n[... texto truncado ...]" : ""}
+
+${summary ? `ANÁLISE PRÉVIA:\n${summary.substring(0, 5000)}` : ""}`,
+              },
+              ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+              { role: "user", content: userQuestion },
+            ],
+          }),
+        }
+      );
+
+      if (response.status === 429) {
+        toast.error("Limite de requisições atingido. Aguarde um momento.");
+        setChatMessages(prev => prev.slice(0, -1));
+        setIsAskingQuestion(false);
+        return;
+      }
+
+      if (response.status === 402) {
+        toast.error("Créditos insuficientes.");
+        setChatMessages(prev => prev.slice(0, -1));
+        setIsAskingQuestion(false);
+        return;
+      }
+
+      if (!response.ok || !response.body) {
+        throw new Error("Erro na resposta");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullResponse = "";
+
+      setChatMessages(prev => [...prev, { role: "assistant", content: "" }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              fullResponse += content;
+              setChatMessages(prev => {
+                const updated = [...prev];
+                updated[updated.length - 1] = { role: "assistant", content: fullResponse };
+                return updated;
+              });
+            }
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+
+      // Scroll to bottom
+      setTimeout(() => {
+        chatContainerRef.current?.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }, 100);
+    } catch (error) {
+      console.error("Question error:", error);
+      toast.error("Erro ao processar pergunta.");
+      setChatMessages(prev => prev.slice(0, -1));
+    } finally {
+      setIsAskingQuestion(false);
+    }
+  };
   const analyzeDocument = async () => {
     if (!uploadedFile || !extractedText) return;
 
@@ -447,58 +569,126 @@ ${extractedText.substring(0, 30000)}${extractedText.length > 30000 ? "\n\n[... t
           )}
         </div>
 
-        {/* Summary */}
-        <div className="legal-card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-serif text-xl font-semibold">Análise do Documento</h3>
-            {summary && (
-              <div className="flex gap-2">
-                <button
-                  onClick={copyToClipboard}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors"
-                  title="Copiar resumo"
-                >
-                  <Copy className="w-4 h-4 text-muted-foreground" />
-                </button>
-                <button
-                  onClick={downloadSummary}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors"
-                  title="Baixar resumo"
-                >
-                  <Download className="w-4 h-4 text-muted-foreground" />
-                </button>
+        {/* Summary and Chat */}
+        <div className="space-y-4">
+          <div className="legal-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-serif text-xl font-semibold">Análise do Documento</h3>
+              {summary && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={copyToClipboard}
+                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                    title="Copiar resumo"
+                  >
+                    <Copy className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                  <button
+                    onClick={downloadSummary}
+                    className="p-2 hover:bg-muted rounded-lg transition-colors"
+                    title="Baixar resumo"
+                  >
+                    <Download className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isAnalyzing && !summary && (
+              <div className="flex flex-col items-center justify-center h-64">
+                <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-muted-foreground">Analisando documento...</p>
               </div>
+            )}
+
+            {summary ? (
+              <div className="prose prose-sm max-w-none fade-in max-h-[400px] overflow-y-auto">
+                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {renderMarkdown(summary)}
+                </div>
+                {isAnalyzing && (
+                  <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                )}
+              </div>
+            ) : (
+              !isAnalyzing && (
+                <div className="flex flex-col items-center justify-center h-64 text-center">
+                  <FileText className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                  <p className="text-muted-foreground">
+                    Envie um documento PDF para ver a análise jurídica aqui
+                  </p>
+                  <p className="text-sm text-muted-foreground/60 mt-2">
+                    A IA irá identificar tipo, partes, cláusulas e pontos de atenção
+                  </p>
+                </div>
+              )
             )}
           </div>
 
-          {isAnalyzing && !summary && (
-            <div className="flex flex-col items-center justify-center h-64">
-              <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="text-muted-foreground">Analisando documento...</p>
-            </div>
-          )}
+          {/* Chat Section - Only show after analysis */}
+          {summary && (
+            <div className="legal-card fade-in">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageSquare className="w-5 h-5 text-primary" />
+                <h3 className="font-serif text-lg font-semibold">Perguntas sobre o Documento</h3>
+              </div>
 
-          {summary ? (
-            <div className="prose prose-sm max-w-none fade-in max-h-[600px] overflow-y-auto">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {renderMarkdown(summary)}
-              </div>
-              {isAnalyzing && (
-                <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+              {/* Chat Messages */}
+              {chatMessages.length > 0 && (
+                <div
+                  ref={chatContainerRef}
+                  className="max-h-64 overflow-y-auto space-y-3 mb-4 p-3 bg-muted/30 rounded-lg"
+                >
+                  {chatMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] p-3 rounded-lg text-sm ${
+                          msg.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                        {isAskingQuestion && i === chatMessages.length - 1 && msg.role === "assistant" && (
+                          <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
-          ) : (
-            !isAnalyzing && (
-              <div className="flex flex-col items-center justify-center h-64 text-center">
-                <FileText className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                <p className="text-muted-foreground">
-                  Envie um documento PDF para ver a análise jurídica aqui
-                </p>
-                <p className="text-sm text-muted-foreground/60 mt-2">
-                  A IA irá identificar tipo, partes, cláusulas e pontos de atenção
-                </p>
+
+              {/* Question Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={questionInput}
+                  onChange={(e) => setQuestionInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && askQuestion()}
+                  placeholder="Faça uma pergunta sobre o documento..."
+                  className="flex-1 px-4 py-2 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  disabled={isAskingQuestion}
+                />
+                <button
+                  onClick={askQuestion}
+                  disabled={!questionInput.trim() || isAskingQuestion}
+                  className="legal-button-gold px-4 flex items-center gap-2"
+                >
+                  {isAskingQuestion ? (
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
               </div>
-            )
+
+              <p className="text-xs text-muted-foreground mt-2">
+                Exemplos: "Qual o prazo de vigência?", "Quais são as multas previstas?", "Explique a cláusula 5"
+              </p>
+            </div>
           )}
         </div>
       </div>

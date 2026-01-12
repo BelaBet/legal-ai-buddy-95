@@ -14,6 +14,7 @@ import { FeatureRequestForm } from "@/components/features/FeatureRequestForm";
 import { IntegrationsPage } from "@/pages/Integrations";
 import { AdminUsersPage } from "@/components/admin/AdminUsersPage";
 import { SettingsPage } from "@/components/settings/SettingsPage";
+import Sales from "@/pages/Sales";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
@@ -64,7 +65,7 @@ const Index = () => {
       case "billing":
         return <SettingsPage />;
       case "sales":
-        return <div className="text-center py-20 text-muted-foreground">Página de Vendas em construção...</div>;
+        return <Sales />;
       default:
         return null;
     }

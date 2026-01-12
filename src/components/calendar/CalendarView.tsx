@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useEvents, useCreateEvent, useDeleteEvent, useSendInvites, CalendarEvent, CreateEventData } from "@/hooks/useEvents";
 import { useNotifications } from "@/hooks/useNotifications";
+import { openGoogleCalendar, downloadICS } from "@/lib/calendarExport";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -362,6 +363,24 @@ export function CalendarView() {
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openGoogleCalendar(event)}
+                      className="p-1 hover:bg-muted rounded"
+                      title="Adicionar ao Google Calendar"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.5 3h-15A1.5 1.5 0 003 4.5v15A1.5 1.5 0 004.5 21h15a1.5 1.5 0 001.5-1.5v-15A1.5 1.5 0 0019.5 3zM12 18a6 6 0 110-12 6 6 0 010 12zm0-10.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => downloadICS(event)}
+                      className="p-1 hover:bg-muted rounded"
+                      title="Baixar para Apple Calendar / Outlook"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14l-4-4 1.41-1.41L11 13.17l4.59-4.58L17 10l-6 6z"/>
+                      </svg>
+                    </button>
                     {event.participants && event.participants.length > 0 && (
                       <button
                         onClick={() => handleSendInvites(event)}

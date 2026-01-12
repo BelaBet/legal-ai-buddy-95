@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { 
   LayoutDashboard, 
   FileText, 
@@ -12,7 +13,9 @@ import {
   LogOut,
   Link2,
   Crown,
-  ShieldCheck
+  ShieldCheck,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +29,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface SidebarProps {
   activeTab: string;
@@ -41,16 +49,18 @@ const navItems = [
   { id: "calendar", label: "Agenda", icon: Calendar },
 ];
 
-const extraItems = [
+const settingsSubItems = [
   { id: "integrations", label: "Integrações", icon: Link2, premium: true },
   { id: "feature-request", label: "Solicitar Funcionalidade", icon: Lightbulb },
-  { id: "admin", label: "Administração", icon: ShieldCheck, adminOnly: true },
 ];
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { user, profile, signOut, hasRole } = useAuth();
   const isSupremo = hasRole("supremo");
   const isAdmin = hasRole("admin");
+  
+  const isSettingsTab = ["integrations", "feature-request"].includes(activeTab);
+  const [settingsOpen, setSettingsOpen] = useState(isSettingsTab);
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return user?.email?.charAt(0).toUpperCase() || "U";
@@ -95,33 +105,62 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
         <Separator className="my-4 bg-sidebar-border" />
 
-        {extraItems.map((item) => {
-          // Hide admin-only items from non-admins
-          if (item.adminOnly && !isAdmin) return null;
-          
-          return (
+        {/* Settings with submenu */}
+        <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <CollapsibleTrigger asChild>
             <button
-              key={item.id}
-              onClick={() => onTabChange(item.id)}
               className={cn(
                 "sidebar-nav-item w-full",
-                activeTab === item.id && "active",
-                item.id === "feature-request" && "text-amber-500 hover:text-amber-400",
-                item.premium && "text-purple-400 hover:text-purple-300",
-                item.adminOnly && "text-red-400 hover:text-red-300"
+                isSettingsTab && "active"
               )}
             >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
-              {item.premium && isSupremo && (
-                <Crown className="w-3 h-3 text-purple-400 ml-auto" />
+              <Settings className="w-5 h-5" />
+              <span className="font-medium flex-1 text-left">Configurações</span>
+              {settingsOpen ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
               )}
             </button>
-          );
-        })}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pl-4 space-y-1 mt-1">
+            {settingsSubItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => onTabChange(item.id)}
+                className={cn(
+                  "sidebar-nav-item w-full text-sm",
+                  activeTab === item.id && "active",
+                  item.id === "feature-request" && "text-amber-500 hover:text-amber-400",
+                  item.premium && "text-purple-400 hover:text-purple-300"
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                <span className="font-medium">{item.label}</span>
+                {item.premium && isSupremo && (
+                  <Crown className="w-3 h-3 text-purple-400 ml-auto" />
+                )}
+              </button>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Admin link - only for admins */}
+        {isAdmin && (
+          <button
+            onClick={() => onTabChange("admin")}
+            className={cn(
+              "sidebar-nav-item w-full text-red-400 hover:text-red-300",
+              activeTab === "admin" && "active"
+            )}
+          >
+            <ShieldCheck className="w-5 h-5" />
+            <span className="font-medium">Administração</span>
+          </button>
+        )}
       </nav>
 
-      {/* User Profile & Settings */}
+      {/* User Profile */}
       <div className="p-4 border-t border-sidebar-border space-y-2">
         <button
           onClick={() => onTabChange("profile")}
@@ -132,11 +171,6 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         >
           <User className="w-5 h-5" />
           <span className="font-medium">Meu Perfil</span>
-        </button>
-
-        <button className="sidebar-nav-item w-full">
-          <Settings className="w-5 h-5" />
-          <span className="font-medium">Configurações</span>
         </button>
 
         <Separator className="my-2 bg-sidebar-border" />
@@ -167,10 +201,6 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             <DropdownMenuItem onClick={() => onTabChange("profile")}>
               <User className="mr-2 h-4 w-4" />
               Ver Perfil
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onTabChange("settings")}>
-              <Settings className="mr-2 h-4 w-4" />
-              Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut} className="text-destructive">

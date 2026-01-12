@@ -20,6 +20,7 @@ import {
 import { useEvents, useCreateEvent, useDeleteEvent, useSendInvites, CalendarEvent, CreateEventData } from "@/hooks/useEvents";
 import { useNotifications } from "@/hooks/useNotifications";
 import { openGoogleCalendar, downloadICS } from "@/lib/calendarExport";
+import { SyncToClickUpButton } from "@/components/integrations/SyncToClickUpButton";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -444,6 +445,14 @@ export function CalendarView() {
                         {event.attachments.length}
                       </span>
                     )}
+                  </div>
+                  <div className="mt-2">
+                    <SyncToClickUpButton 
+                      title={event.title} 
+                      description={event.description || undefined}
+                      dueDate={event.event_date}
+                      type="event"
+                    />
                   </div>
                 </div>
               ))}

@@ -85,6 +85,36 @@ export type Database = {
           },
         ]
       }
+      clickup_integrations: {
+        Row: {
+          api_token: string
+          created_at: string
+          id: string
+          list_id: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          api_token: string
+          created_at?: string
+          id?: string
+          list_id?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          api_token?: string
+          created_at?: string
+          id?: string
+          list_id?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           content: string | null

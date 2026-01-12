@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SyncToClickUpButton } from "@/components/integrations/SyncToClickUpButton";
 
 const statusConfig = {
   active: { label: "Ativo", class: "bg-success/10 text-success" },
@@ -173,6 +174,11 @@ export function CasesManager() {
                   </span>
                 </div>
                 <div className="flex items-center gap-4">
+                  <SyncToClickUpButton 
+                    title={caseItem.title} 
+                    description={`Caso: ${caseItem.case_number}\nCliente: ${caseItem.client}\nTipo: ${caseItem.type}`}
+                    type="case"
+                  />
                   <span className="flex items-center gap-1">
                     <FileText className="w-4 h-4" />
                     {getDocumentCount(caseItem.id)}

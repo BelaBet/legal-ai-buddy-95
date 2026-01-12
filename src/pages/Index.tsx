@@ -9,9 +9,13 @@ import { PDFReader } from "@/components/pdf/PDFReader";
 import { DocumentCreator } from "@/components/documents/DocumentCreator";
 import { CasesManager } from "@/components/cases/CasesManager";
 import { CalendarView } from "@/components/calendar/CalendarView";
+import { ProfilePage } from "@/components/profile/ProfilePage";
+import { FeatureRequestForm } from "@/components/features/FeatureRequestForm";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const { profile } = useAuth();
 
   const renderContent = () => {
     switch (activeTab) {
@@ -20,7 +24,7 @@ const Index = () => {
           <div className="space-y-6">
             <div>
               <h1 className="font-serif text-3xl font-bold text-foreground">
-                Bem-vindo ao LexIA
+                Bem-vindo, {profile?.full_name?.split(" ")[0] || "Advogado"}!
               </h1>
               <p className="text-muted-foreground mt-1">
                 Seu assistente jurídico inteligente
@@ -44,6 +48,10 @@ const Index = () => {
         return <CasesManager />;
       case "calendar":
         return <CalendarView />;
+      case "profile":
+        return <ProfilePage />;
+      case "feature-request":
+        return <FeatureRequestForm />;
       default:
         return null;
     }

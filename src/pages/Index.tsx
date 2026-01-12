@@ -12,6 +12,7 @@ import { CalendarView } from "@/components/calendar/CalendarView";
 import { ProfilePage } from "@/components/profile/ProfilePage";
 import { FeatureRequestForm } from "@/components/features/FeatureRequestForm";
 import { IntegrationsPage } from "@/pages/Integrations";
+import { AdminUsersPage } from "@/components/admin/AdminUsersPage";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
@@ -55,6 +56,8 @@ const Index = () => {
         return <FeatureRequestForm />;
       case "integrations":
         return <IntegrationsPage />;
+      case "admin":
+        return <AdminUsersPage />;
       default:
         return null;
     }

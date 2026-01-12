@@ -11,7 +11,8 @@ import {
   Lightbulb,
   LogOut,
   Link2,
-  Crown
+  Crown,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,11 +44,13 @@ const navItems = [
 const extraItems = [
   { id: "integrations", label: "Integrações", icon: Link2, premium: true },
   { id: "feature-request", label: "Solicitar Funcionalidade", icon: Lightbulb },
+  { id: "admin", label: "Administração", icon: ShieldCheck, adminOnly: true },
 ];
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { user, profile, signOut, hasRole } = useAuth();
   const isSupremo = hasRole("supremo");
+  const isAdmin = hasRole("admin");
 
   const getInitials = (name: string | null | undefined) => {
     if (!name) return user?.email?.charAt(0).toUpperCase() || "U";
@@ -92,24 +95,30 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
         <Separator className="my-4 bg-sidebar-border" />
 
-        {extraItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onTabChange(item.id)}
-            className={cn(
-              "sidebar-nav-item w-full",
-              activeTab === item.id && "active",
-              item.id === "feature-request" && "text-amber-500 hover:text-amber-400",
-              item.premium && "text-purple-400 hover:text-purple-300"
-            )}
-          >
-            <item.icon className="w-5 h-5" />
-            <span className="font-medium">{item.label}</span>
-            {item.premium && isSupremo && (
-              <Crown className="w-3 h-3 text-purple-400 ml-auto" />
-            )}
-          </button>
-        ))}
+        {extraItems.map((item) => {
+          // Hide admin-only items from non-admins
+          if (item.adminOnly && !isAdmin) return null;
+          
+          return (
+            <button
+              key={item.id}
+              onClick={() => onTabChange(item.id)}
+              className={cn(
+                "sidebar-nav-item w-full",
+                activeTab === item.id && "active",
+                item.id === "feature-request" && "text-amber-500 hover:text-amber-400",
+                item.premium && "text-purple-400 hover:text-purple-300",
+                item.adminOnly && "text-red-400 hover:text-red-300"
+              )}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="font-medium">{item.label}</span>
+              {item.premium && isSupremo && (
+                <Crown className="w-3 h-3 text-purple-400 ml-auto" />
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {/* User Profile & Settings */}

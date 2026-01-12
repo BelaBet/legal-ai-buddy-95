@@ -1,37 +1,66 @@
 import { FileText, FolderOpen, Clock, CheckCircle } from "lucide-react";
-
-const stats = [
-  {
-    label: "Documentos",
-    value: "24",
-    icon: FileText,
-    change: "+3 esta semana",
-    color: "text-primary",
-  },
-  {
-    label: "Casos Ativos",
-    value: "8",
-    icon: FolderOpen,
-    change: "2 atualizados hoje",
-    color: "text-gold-warm",
-  },
-  {
-    label: "Prazos Próximos",
-    value: "5",
-    icon: Clock,
-    change: "Próximo: 2 dias",
-    color: "text-warning",
-  },
-  {
-    label: "Concluídos",
-    value: "156",
-    icon: CheckCircle,
-    change: "Este mês: 12",
-    color: "text-success",
-  },
-];
+import { useDocuments } from "@/hooks/useDocuments";
+import { useCases } from "@/hooks/useCases";
+import { useEvents } from "@/hooks/useEvents";
 
 export function StatsCards() {
+  const { data: documents = [] } = useDocuments();
+  const { data: cases = [] } = useCases();
+  const { data: events = [] } = useEvents();
+
+  const activeCases = cases.filter((c) => c.status === "active").length;
+  const completedDocs = documents.filter((d) => d.status === "completed").length;
+  
+  const today = new Date();
+  const upcomingEvents = events.filter((e) => {
+    const eventDate = new Date(e.event_date);
+    const diffDays = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 7;
+  }).length;
+
+  const nextDeadline = events
+    .filter((e) => e.type === "deadline" && new Date(e.event_date) >= today)
+    .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())[0];
+
+  const nextDeadlineDays = nextDeadline
+    ? Math.ceil((new Date(nextDeadline.event_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const stats = [
+    {
+      label: "Documentos",
+      value: documents.length.toString(),
+      icon: FileText,
+      change: documents.length > 0 ? `${documents.filter(d => {
+        const created = new Date(d.created_at);
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return created >= weekAgo;
+      }).length} esta semana` : "Nenhum ainda",
+      color: "text-primary",
+    },
+    {
+      label: "Casos Ativos",
+      value: activeCases.toString(),
+      icon: FolderOpen,
+      change: cases.length > 0 ? `${cases.length} total` : "Nenhum ainda",
+      color: "text-gold-warm",
+    },
+    {
+      label: "Prazos Próximos",
+      value: upcomingEvents.toString(),
+      icon: Clock,
+      change: nextDeadlineDays !== null ? `Próximo: ${nextDeadlineDays} dias` : "Sem prazos",
+      color: "text-warning",
+    },
+    {
+      label: "Concluídos",
+      value: completedDocs.toString(),
+      icon: CheckCircle,
+      change: "Documentos finalizados",
+      color: "text-success",
+    },
+  ];
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {stats.map((stat, index) => (

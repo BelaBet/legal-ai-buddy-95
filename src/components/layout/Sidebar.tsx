@@ -6,9 +6,23 @@ import {
   Calendar, 
   FolderOpen,
   Settings,
-  Scale
+  Scale,
+  User,
+  Lightbulb,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SidebarProps {
   activeTab: string;
@@ -24,7 +38,23 @@ const navItems = [
   { id: "calendar", label: "Agenda", icon: Calendar },
 ];
 
+const extraItems = [
+  { id: "feature-request", label: "Solicitar Funcionalidade", icon: Lightbulb },
+];
+
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+  const { user, profile, signOut } = useAuth();
+
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return user?.email?.charAt(0).toUpperCase() || "U";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <aside className="w-64 h-screen bg-sidebar fixed left-0 top-0 flex flex-col">
       {/* Logo */}
@@ -41,7 +71,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
           <button
             key={item.id}
@@ -55,14 +85,83 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             <span className="font-medium">{item.label}</span>
           </button>
         ))}
+
+        <Separator className="my-4 bg-sidebar-border" />
+
+        {extraItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            className={cn(
+              "sidebar-nav-item w-full",
+              activeTab === item.id && "active",
+              item.id === "feature-request" && "text-amber-500 hover:text-amber-400"
+            )}
+          >
+            <item.icon className="w-5 h-5" />
+            <span className="font-medium">{item.label}</span>
+          </button>
+        ))}
       </nav>
 
-      {/* Settings */}
-      <div className="p-4 border-t border-sidebar-border">
+      {/* User Profile & Settings */}
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <button
+          onClick={() => onTabChange("profile")}
+          className={cn(
+            "sidebar-nav-item w-full",
+            activeTab === "profile" && "active"
+          )}
+        >
+          <User className="w-5 h-5" />
+          <span className="font-medium">Meu Perfil</span>
+        </button>
+
         <button className="sidebar-nav-item w-full">
           <Settings className="w-5 h-5" />
           <span className="font-medium">Configurações</span>
         </button>
+
+        <Separator className="my-2 bg-sidebar-border" />
+
+        {/* User Info */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-sidebar-accent transition-colors">
+              <Avatar className="w-8 h-8">
+                <AvatarImage src={profile?.avatar_url || ""} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {getInitials(profile?.full_name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">
+                  {profile?.full_name || "Usuário"}
+                </p>
+                <p className="text-xs text-sidebar-foreground/60 truncate">
+                  {user?.email}
+                </p>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onTabChange("profile")}>
+              <User className="mr-2 h-4 w-4" />
+              Ver Perfil
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onTabChange("settings")}>
+              <Settings className="mr-2 h-4 w-4" />
+              Configurações
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={signOut} className="text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              Sair
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );

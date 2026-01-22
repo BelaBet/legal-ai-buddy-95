@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, FileText, BookOpen, Lightbulb, Scale, Paperclip, X, Image, File } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DOMPurify from "dompurify";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Attachment {
   id: string;
@@ -159,11 +160,22 @@ export function AIChat() {
         content: m.content,
       }));
 
+      // Get user session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast({
+          variant: "destructive",
+          title: "Não autenticado",
+          description: "Faça login para usar o assistente jurídico.",
+        });
+        throw new Error("User not authenticated");
+      }
+
       const response = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ messages: allMessages }),
       });

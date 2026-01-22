@@ -129,8 +129,11 @@ export function useCreateEvent() {
 
       // Upload files if any
       if (eventData.files && eventData.files.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+        
         for (const file of eventData.files) {
-          const filePath = `${event.id}/${Date.now()}_${file.name}`;
+          const filePath = `${user.id}/${event.id}/${Date.now()}_${file.name}`;
           
           const { error: uploadError } = await supabase.storage
             .from("event-files")

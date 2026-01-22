@@ -1,1 +1,4 @@
 project_id = "spsfvgcvibtftnkoxodb"
+
+[functions.legal-chat]
+verify_jwt = false

@@ -94,13 +94,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    // Validate and sanitize full_name before sending
+    const sanitizedName = fullName.trim().substring(0, 100);
+    if (!sanitizedName) {
+      return { error: new Error('Nome completo é obrigatório') };
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: window.location.origin,
         data: {
-          full_name: fullName,
+          full_name: sanitizedName,
         },
       },
     });

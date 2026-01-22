@@ -31,6 +31,10 @@ FORMATO DE RESPOSTAS:
 
 Responda sempre em português brasileiro.`;
 
+// Rate limit configuration: 30 requests per hour per user
+const RATE_LIMIT_MAX_REQUESTS = 30;
+const RATE_LIMIT_WINDOW_MINUTES = 60;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -48,13 +52,18 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    // User client for auth validation
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
+    // Service client for rate limiting (bypasses RLS)
+    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
+
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
     
     if (claimsError || !claimsData?.claims) {
       console.error("Auth error:", claimsError);
@@ -66,6 +75,43 @@ serve(async (req) => {
 
     const userId = claimsData.claims.sub;
     console.log("Authenticated user:", userId);
+
+    // Check rate limit
+    const { data: rateLimitData, error: rateLimitError } = await supabaseService
+      .rpc("check_rate_limit", {
+        p_user_id: userId,
+        p_endpoint: "legal-chat",
+        p_max_requests: RATE_LIMIT_MAX_REQUESTS,
+        p_window_minutes: RATE_LIMIT_WINDOW_MINUTES,
+      });
+
+    if (rateLimitError) {
+      console.error("Rate limit check error:", rateLimitError);
+      // Continue without rate limiting if there's an error
+    } else if (rateLimitData && rateLimitData.length > 0) {
+      const { allowed, remaining, reset_at } = rateLimitData[0];
+      
+      if (!allowed) {
+        console.log("Rate limit exceeded for user:", userId);
+        return new Response(
+          JSON.stringify({ 
+            error: "Limite de requisições excedido. Tente novamente mais tarde.",
+            reset_at: reset_at,
+          }),
+          { 
+            status: 429, 
+            headers: { 
+              ...corsHeaders, 
+              "Content-Type": "application/json",
+              "X-RateLimit-Remaining": "0",
+              "X-RateLimit-Reset": reset_at,
+            } 
+          }
+        );
+      }
+
+      console.log(`Rate limit check passed. Remaining: ${remaining}, Reset: ${reset_at}`);
+    }
 
     const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");

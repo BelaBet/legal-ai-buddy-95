@@ -5,7 +5,7 @@ import { toast } from "sonner";
 export interface ClickUpIntegration {
   id: string;
   user_id: string;
-  api_token: string;
+  api_token: string; // Retrieved from vault
   workspace_id: string | null;
   list_id: string | null;
   created_at: string;
@@ -35,13 +35,28 @@ export function useClickUpIntegration() {
   return useQuery({
     queryKey: ["clickup-integration"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Get integration metadata from table
+      const { data: integration, error } = await supabase
         .from("clickup_integrations")
         .select("*")
         .maybeSingle();
 
       if (error) throw error;
-      return data as ClickUpIntegration | null;
+      if (!integration) return null;
+
+      // Get decrypted token from vault
+      const { data: tokenData, error: tokenError } = await supabase
+        .rpc("get_clickup_token");
+
+      if (tokenError) {
+        console.error("Error fetching token from vault:", tokenError);
+        throw tokenError;
+      }
+
+      return {
+        ...integration,
+        api_token: tokenData || "",
+      } as ClickUpIntegration;
     },
   });
 }
@@ -54,6 +69,19 @@ export function useSaveClickUpIntegration() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Store token in vault
+      const { error: vaultError } = await supabase
+        .rpc("store_clickup_token", { 
+          p_user_id: user.id, 
+          p_token: data.api_token 
+        });
+
+      if (vaultError) {
+        console.error("Error storing token in vault:", vaultError);
+        throw vaultError;
+      }
+
+      // Check if integration already exists
       const { data: existing } = await supabase
         .from("clickup_integrations")
         .select("id")
@@ -64,7 +92,6 @@ export function useSaveClickUpIntegration() {
         const { error } = await supabase
           .from("clickup_integrations")
           .update({
-            api_token: data.api_token,
             workspace_id: data.workspace_id || null,
             list_id: data.list_id || null,
           })
@@ -76,7 +103,6 @@ export function useSaveClickUpIntegration() {
           .from("clickup_integrations")
           .insert({
             user_id: user.id,
-            api_token: data.api_token,
             workspace_id: data.workspace_id || null,
             list_id: data.list_id || null,
           });
@@ -103,6 +129,16 @@ export function useDeleteClickUpIntegration() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Delete token from vault
+      const { error: vaultError } = await supabase
+        .rpc("delete_clickup_token");
+
+      if (vaultError) {
+        console.error("Error deleting token from vault:", vaultError);
+        throw vaultError;
+      }
+
+      // Delete integration metadata
       const { error } = await supabase
         .from("clickup_integrations")
         .delete()

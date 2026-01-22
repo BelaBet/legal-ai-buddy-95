@@ -87,7 +87,6 @@ export type Database = {
       }
       clickup_integrations: {
         Row: {
-          api_token: string
           created_at: string
           id: string
           list_id: string | null
@@ -96,7 +95,6 @@ export type Database = {
           workspace_id: string | null
         }
         Insert: {
-          api_token: string
           created_at?: string
           id?: string
           list_id?: string | null
@@ -105,7 +103,6 @@ export type Database = {
           workspace_id?: string | null
         }
         Update: {
-          api_token?: string
           created_at?: string
           id?: string
           list_id?: string | null
@@ -387,12 +384,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_clickup_token: { Args: never; Returns: undefined }
+      get_clickup_token: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      store_clickup_token: {
+        Args: { p_token: string; p_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {

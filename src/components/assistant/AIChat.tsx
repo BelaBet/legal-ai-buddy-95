@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, FileText, BookOpen, Lightbulb, Scale, Paperclip, X, Image, File } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import DOMPurify from "dompurify";
 
 interface Attachment {
   id: string;
@@ -290,26 +291,34 @@ export function AIChat() {
   };
 
   const renderMarkdown = (text: string) => {
+    // Configure DOMPurify to only allow safe tags
+    const purifyConfig = {
+      ALLOWED_TAGS: ['strong', 'em', 'code', 'pre', 'br'],
+      ALLOWED_ATTR: [],
+    };
+
     return text.split('\n').map((line, i) => {
-      // Headers
+      // Headers - text content is already escaped by React
       if (line.startsWith('## ')) {
         return <h2 key={i} className="font-serif text-lg font-semibold mt-4 mb-2">{line.replace('## ', '')}</h2>;
       }
       if (line.startsWith('### ')) {
         return <h3 key={i} className="font-serif font-semibold mt-3 mb-1 text-gold-dark">{line.replace('### ', '')}</h3>;
       }
-      // Bold
+      // Bold - sanitize before rendering
       let formatted = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      const sanitized = DOMPurify.sanitize(formatted, purifyConfig);
       // Lists
       if (line.startsWith('- ')) {
-        return <p key={i} className="ml-4 my-1" dangerouslySetInnerHTML={{ __html: '• ' + formatted.slice(2) }} />;
+        const listContent = DOMPurify.sanitize('• ' + formatted.slice(2), purifyConfig);
+        return <p key={i} className="ml-4 my-1" dangerouslySetInnerHTML={{ __html: listContent }} />;
       }
-      // Warning
+      // Warning - text content is already escaped by React
       if (line.startsWith('⚠️')) {
         return <p key={i} className="text-warning bg-warning/10 p-2 rounded my-2">{line}</p>;
       }
-      // Regular paragraph
-      return <p key={i} className="my-1" dangerouslySetInnerHTML={{ __html: formatted }} />;
+      // Regular paragraph - use sanitized content
+      return <p key={i} className="my-1" dangerouslySetInnerHTML={{ __html: sanitized }} />;
     });
   };
 

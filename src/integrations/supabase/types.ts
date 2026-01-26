@@ -427,6 +427,18 @@ export type Database = {
       cleanup_old_api_usage: { Args: never; Returns: undefined }
       delete_clickup_token: { Args: never; Returns: undefined }
       get_clickup_token: { Args: never; Returns: string }
+      get_profiles_for_admin: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          created_at: string
+          full_name: string
+          id: string
+          specialty: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

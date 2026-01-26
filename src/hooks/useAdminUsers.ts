@@ -4,12 +4,20 @@ import { useToast } from "@/hooks/use-toast";
 
 export type AppRole = "admin" | "user" | "premium" | "supremo";
 
+interface AdminProfile {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  specialty: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface UserWithRole {
   user_id: string;
   full_name: string | null;
   email: string | null;
-  phone: string | null;
-  oab_number: string | null;
   specialty: string | null;
   created_at: string;
   roles: AppRole[];
@@ -22,11 +30,9 @@ export function useAdminUsers() {
   const { data: users, isLoading, error } = useQuery({
     queryKey: ["admin-users"],
     queryFn: async () => {
-      // Fetch all profiles
+      // Fetch profiles using secure function that excludes sensitive data (phone, oab_number)
       const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .rpc("get_profiles_for_admin");
 
       if (profilesError) throw profilesError;
 
@@ -37,8 +43,8 @@ export function useAdminUsers() {
 
       if (rolesError) throw rolesError;
 
-      // Get user emails from auth (via profile user_id match)
-      const usersWithRoles: UserWithRole[] = profiles.map((profile) => {
+      // Map profiles to users with roles (sensitive fields are not included)
+      const usersWithRoles: UserWithRole[] = (profiles as AdminProfile[]).map((profile) => {
         const roles = userRoles
           .filter((r) => r.user_id === profile.user_id)
           .map((r) => r.role as AppRole);
@@ -46,9 +52,7 @@ export function useAdminUsers() {
         return {
           user_id: profile.user_id,
           full_name: profile.full_name,
-          email: null, // We'll display user_id as email isn't accessible
-          phone: profile.phone,
-          oab_number: profile.oab_number,
+          email: null, // Email isn't accessible from profiles
           specialty: profile.specialty,
           created_at: profile.created_at,
           roles,

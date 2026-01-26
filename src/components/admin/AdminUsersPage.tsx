@@ -69,7 +69,6 @@ export function AdminUsersPage() {
     return (
       user.full_name?.toLowerCase().includes(searchLower) ||
       user.user_id.toLowerCase().includes(searchLower) ||
-      user.oab_number?.toLowerCase().includes(searchLower) ||
       user.specialty?.toLowerCase().includes(searchLower)
     );
   });
@@ -189,7 +188,6 @@ export function AdminUsersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Usuário</TableHead>
-                    <TableHead>OAB</TableHead>
                     <TableHead>Especialidade</TableHead>
                     <TableHead>Roles Atuais</TableHead>
                     <TableHead>Alterar Role</TableHead>
@@ -208,11 +206,6 @@ export function AdminUsersPage() {
                             {user.user_id}
                           </p>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">
-                          {user.oab_number || "-"}
-                        </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">
@@ -262,7 +255,7 @@ export function AdminUsersPage() {
                   ))}
                   {filteredUsers?.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={5} className="text-center py-8">
                         <p className="text-muted-foreground">
                           Nenhum usuário encontrado
                         </p>

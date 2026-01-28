@@ -92,6 +92,10 @@ export function CasesManager() {
               className="legal-input pl-10"
             />
           </div>
+          <button className="legal-button-primary flex items-center gap-2">
+            <Search className="w-5 h-5" />
+            Pesquisar
+          </button>
           <button className="legal-button-primary flex items-center gap-2 !bg-muted !text-foreground hover:!bg-muted/80">
             <Filter className="w-5 h-5" />
             Filtrar

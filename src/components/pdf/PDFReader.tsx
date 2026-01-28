@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, FileText, X, Sparkles, Copy, Download, CheckCircle, Send, MessageSquare } from "lucide-react";
+import { Upload, FileText, X, Sparkles, Copy, Download, CheckCircle, Send, MessageSquare, ScanText } from "lucide-react";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,10 +31,13 @@ export function PDFReader() {
   const [extractedText, setExtractedText] = useState<string>("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<string>("");
   const [extractionProgress, setExtractionProgress] = useState<ExtractionProgress | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [questionInput, setQuestionInput] = useState("");
   const [isAskingQuestion, setIsAskingQuestion] = useState(false);
+  const [showOcrOption, setShowOcrOption] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -132,6 +135,123 @@ export function PDFReader() {
     }
   };
 
+  // Função para renderizar páginas do PDF como imagens para OCR
+  const renderPagesToImages = async (file: File, maxPages: number = 5): Promise<string[]> => {
+    console.log(`[PDFReader] Renderizando até ${maxPages} páginas como imagens para OCR`);
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const numPages = Math.min(pdf.numPages, maxPages);
+    const images: string[] = [];
+    
+    for (let i = 1; i <= numPages; i++) {
+      setOcrProgress(`Preparando página ${i} de ${numPages}...`);
+      
+      const page = await pdf.getPage(i);
+      const scale = 2; // Alta resolução para melhor OCR
+      const viewport = page.getViewport({ scale });
+      
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+      
+      if (!context) {
+        throw new Error("Could not create canvas context");
+      }
+      
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport,
+        canvas: canvas,
+      }).promise;
+      
+      // Converter canvas para base64 JPEG (menor que PNG)
+      const imageData = canvas.toDataURL("image/jpeg", 0.85);
+      images.push(imageData);
+      
+      console.log(`[PDFReader] Página ${i} renderizada: ${(imageData.length / 1024).toFixed(1)} KB`);
+    }
+    
+    return images;
+  };
+
+  // Função para processar OCR usando IA
+  const processOcr = async () => {
+    if (!uploadedFile) return;
+    
+    setIsOcrProcessing(true);
+    setOcrProgress("Iniciando OCR com IA...");
+    setShowOcrOption(false);
+    
+    try {
+      // Get user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error("Faça login para usar o OCR.");
+        return;
+      }
+      
+      // Renderizar páginas como imagens
+      const images = await renderPagesToImages(uploadedFile.file);
+      
+      if (images.length === 0) {
+        toast.error("Não foi possível renderizar as páginas do PDF.");
+        return;
+      }
+      
+      setOcrProgress(`Enviando ${images.length} página(s) para análise IA...`);
+      
+      // Enviar para edge function de OCR
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-ocr`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            images,
+            fileName: uploadedFile.name,
+          }),
+        }
+      );
+      
+      if (response.status === 429) {
+        toast.error("Limite de requisições atingido. Aguarde um momento.");
+        return;
+      }
+      
+      if (response.status === 402) {
+        toast.error("Créditos insuficientes para OCR.");
+        return;
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Erro no processamento OCR");
+      }
+      
+      const data = await response.json();
+      
+      if (data.text && data.text.length > 0) {
+        setExtractedText(data.text);
+        toast.success(`OCR concluído! ${data.text.length.toLocaleString()} caracteres extraídos de ${data.pages} página(s).`);
+        console.log(`[PDFReader] OCR bem-sucedido: ${data.text.length} caracteres`);
+      } else {
+        toast.warning("O OCR não conseguiu extrair texto das imagens.");
+      }
+    } catch (error: any) {
+      console.error("[PDFReader] Erro no OCR:", error);
+      toast.error(error.message || "Erro ao processar OCR.");
+    } finally {
+      setIsOcrProcessing(false);
+      setOcrProgress("");
+    }
+  };
+
   const processFile = async (file: File) => {
     // Validação de tipo
     if (file.type !== "application/pdf") {
@@ -169,10 +289,15 @@ export function PDFReader() {
     try {
       const text = await extractTextFromPDF(file);
       
-      if (text.length === 0) {
-        console.warn(`[PDFReader] PDF sem texto extraível (possivelmente escaneado)`);
-        toast.warning("PDF carregado, mas nenhum texto foi extraído. O documento pode ser uma imagem escaneada.");
+      // Verificar se o texto extraído é muito curto (possível PDF escaneado)
+      const minTextLength = 100; // Mínimo de caracteres para considerar válido
+      
+      if (text.length < minTextLength) {
+        console.warn(`[PDFReader] PDF com pouco texto extraível (${text.length} chars) - possivelmente escaneado`);
+        setShowOcrOption(true);
+        toast.warning("PDF carregado, mas pouco texto foi extraído. Use o OCR para documentos escaneados.");
       } else {
+        setShowOcrOption(false);
         toast.success(`PDF carregado! ${text.length.toLocaleString()} caracteres extraídos.`);
       }
       
@@ -619,11 +744,46 @@ ${extractedText.substring(0, 30000)}${extractedText.length > 30000 ? "\n\n[... t
 
               {extractedText && (
                 <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2 text-sm text-green-600">
+                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                     <CheckCircle className="w-4 h-4" />
                     <span>
                       {extractedText.length.toLocaleString()} caracteres extraídos
                     </span>
+                  </div>
+                </div>
+              )}
+
+              {/* OCR Option for scanned PDFs */}
+              {(showOcrOption || extractedText.length < 100) && !isOcrProcessing && (
+                <div className="mt-3 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                  <div className="flex items-center gap-2 text-sm text-warning mb-2">
+                    <ScanText className="w-4 h-4" />
+                    <span className="font-medium">PDF parece ser escaneado</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Este documento parece conter imagens ao invés de texto. Use o OCR com IA para extrair o texto.
+                  </p>
+                  <button
+                    onClick={processOcr}
+                    className="legal-button-primary w-full flex items-center justify-center gap-2"
+                  >
+                    <ScanText className="w-4 h-4" />
+                    Extrair texto com OCR (IA)
+                  </button>
+                </div>
+              )}
+
+              {/* OCR Processing */}
+              {isOcrProcessing && (
+                <div className="mt-3 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <div>
+                      <span className="font-medium text-sm">Processando OCR com IA...</span>
+                      {ocrProgress && (
+                        <p className="text-xs text-muted-foreground">{ocrProgress}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

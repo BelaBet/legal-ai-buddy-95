@@ -90,6 +90,10 @@ export function useCreateEvent() {
 
   return useMutation({
     mutationFn: async (eventData: CreateEventData) => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
       // Create the event first
       const { data: event, error: eventError } = await supabase
         .from("events")
@@ -104,6 +108,7 @@ export function useCreateEvent() {
           notification_enabled: eventData.notification_enabled || false,
           notification_minutes_before: eventData.notification_minutes_before || 30,
           case_id: eventData.case_id || null,
+          user_id: user.id, // Add user_id for RLS
         })
         .select()
         .single();
@@ -129,9 +134,6 @@ export function useCreateEvent() {
 
       // Upload files if any
       if (eventData.files && eventData.files.length > 0) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated");
-        
         for (const file of eventData.files) {
           const filePath = `${user.id}/${event.id}/${Date.now()}_${file.name}`;
           

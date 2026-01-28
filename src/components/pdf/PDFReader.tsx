@@ -222,80 +222,19 @@ export function PDFReader() {
     return images;
   };
 
-  // Função para processar OCR usando IA
+  // Função para processar OCR usando IA (chamada manual pelo botão)
   const processOcr = async () => {
     if (!uploadedFile) return;
-    
-    setIsOcrProcessing(true);
-    setOcrProgress("Iniciando OCR com IA...");
-    setShowOcrOption(false);
-    
-    try {
-      // Get user session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast.error("Faça login para usar o OCR.");
-        return;
-      }
-      
-      // Renderizar páginas como imagens
-      const images = await renderPagesToImages(uploadedFile.file);
-      
-      if (images.length === 0) {
-        toast.error("Não foi possível renderizar as páginas do PDF.");
-        return;
-      }
-      
-      setOcrProgress(`Enviando ${images.length} página(s) para análise IA...`);
-      
-      // Enviar para edge function de OCR
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-ocr`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            images,
-            fileName: uploadedFile.name,
-          }),
-        }
-      );
-      
-      if (response.status === 429) {
-        toast.error("Limite de requisições atingido. Aguarde um momento.");
-        return;
-      }
-      
-      if (response.status === 402) {
-        toast.error("Créditos insuficientes para OCR.");
-        return;
-      }
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Erro no processamento OCR");
-      }
-      
-      const data = await response.json();
-      
-      if (data.text && data.text.length > 0) {
-        setExtractedText(data.text);
-        setAutoAnalyze(true); // Ativar análise automática após OCR
-        toast.success(`OCR concluído! Iniciando análise automática...`);
-        console.log(`[PDFReader] OCR bem-sucedido: ${data.text.length} caracteres`);
-      } else {
-        toast.warning("O OCR não conseguiu extrair texto das imagens.");
-      }
-    } catch (error: any) {
-      console.error("[PDFReader] Erro no OCR:", error);
-      toast.error(error.message || "Erro ao processar OCR.");
-    } finally {
-      setIsOcrProcessing(false);
-      setOcrProgress("");
-    }
+    await processOcrForFile(uploadedFile.file);
+  };
+
+  // Função para calcular o texto real (sem os marcadores de página)
+  const getRealTextContent = (text: string): string => {
+    // Remove os marcadores de página e conta apenas o texto real
+    return text
+      .replace(/---\s*Página\s*\d+\s*---/gi, "")
+      .replace(/\[Erro ao extrair texto desta página\]/gi, "")
+      .trim();
   };
 
   const processFile = async (file: File) => {
@@ -331,29 +270,119 @@ export function PDFReader() {
     });
     setSummary("");
     setExtractedText("");
+    setShowOcrOption(false);
 
     try {
       const text = await extractTextFromPDF(file);
       
-      // Verificar se o texto extraído é muito curto (possível PDF escaneado)
-      const minTextLength = 100; // Mínimo de caracteres para considerar válido
+      // Calcular o texto REAL (sem marcadores de página)
+      const realText = getRealTextContent(text);
+      const minRealTextLength = 50; // Mínimo de caracteres REAIS para considerar válido
       
-      if (text.length < minTextLength) {
-        console.warn(`[PDFReader] PDF com pouco texto extraível (${text.length} chars) - possivelmente escaneado`);
-        setShowOcrOption(true);
-        setAutoAnalyze(false); // Não auto-analisar PDFs escaneados
-        toast.warning("PDF carregado, mas pouco texto foi extraído. Use o OCR para documentos escaneados.");
+      console.log(`[PDFReader] Texto total: ${text.length} chars, Texto real: ${realText.length} chars`);
+      
+      if (realText.length < minRealTextLength) {
+        console.warn(`[PDFReader] PDF com pouco texto extraível (${realText.length} chars reais) - iniciando OCR automático`);
+        
+        // Armazenar o arquivo para referência
+        setExtractedText(""); // Limpar texto vazio
+        
+        // Iniciar OCR automaticamente para PDFs escaneados
+        toast.info("📄 PDF escaneado detectado. Iniciando OCR automático com IA...");
+        
+        // Disparar OCR automaticamente
+        setTimeout(async () => {
+          await processOcrForFile(file);
+        }, 100);
       } else {
         setShowOcrOption(false);
+        setExtractedText(text);
         setAutoAnalyze(true); // Ativar análise automática
         toast.success(`PDF carregado! Iniciando análise automática...`);
       }
-      
-      setExtractedText(text);
     } catch (error: any) {
       console.error("[PDFReader] Falha ao processar PDF:", error);
       toast.error(error.message || "Erro ao processar o PDF. Verifique se o arquivo não está corrompido.");
       setUploadedFile(null);
+    }
+  };
+
+  // Função separada para processar OCR com arquivo específico
+  const processOcrForFile = async (file: File) => {
+    setIsOcrProcessing(true);
+    setOcrProgress("Iniciando OCR automático com IA...");
+    
+    try {
+      // Get user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error("Faça login para usar o OCR.");
+        setShowOcrOption(true);
+        return;
+      }
+      
+      // Renderizar páginas como imagens
+      const images = await renderPagesToImages(file);
+      
+      if (images.length === 0) {
+        toast.error("Não foi possível renderizar as páginas do PDF.");
+        setShowOcrOption(true);
+        return;
+      }
+      
+      setOcrProgress(`Enviando ${images.length} página(s) para análise IA...`);
+      
+      // Enviar para edge function de OCR
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pdf-ocr`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            images,
+            fileName: file.name,
+          }),
+        }
+      );
+      
+      if (response.status === 429) {
+        toast.error("Limite de requisições atingido. Aguarde um momento.");
+        setShowOcrOption(true);
+        return;
+      }
+      
+      if (response.status === 402) {
+        toast.error("Créditos insuficientes para OCR.");
+        setShowOcrOption(true);
+        return;
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Erro no processamento OCR");
+      }
+      
+      const data = await response.json();
+      
+      if (data.text && data.text.length > 0) {
+        setExtractedText(data.text);
+        setAutoAnalyze(true); // Ativar análise automática após OCR
+        toast.success(`OCR concluído! Iniciando análise automática...`);
+        console.log(`[PDFReader] OCR bem-sucedido: ${data.text.length} caracteres`);
+      } else {
+        toast.warning("O OCR não conseguiu extrair texto das imagens.");
+        setShowOcrOption(true);
+      }
+    } catch (error: any) {
+      console.error("[PDFReader] Erro no OCR:", error);
+      toast.error(error.message || "Erro ao processar OCR.");
+      setShowOcrOption(true);
+    } finally {
+      setIsOcrProcessing(false);
+      setOcrProgress("");
     }
   };
 

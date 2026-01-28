@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Save, FileText, Calendar, Download, ChevronDown, Loader2 } from "lucide-react";
+import { Save, FileText, Calendar, Download, ChevronDown, Loader2, FileType, FileType2, ScanText } from "lucide-react";
+import { jsPDF } from "jspdf";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import { saveAs } from "file-saver";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -155,7 +158,7 @@ export function PDFSaveOptions({
     }
   };
 
-  const handleDownload = () => {
+  const handleDownloadTxt = () => {
     const content = getContentToSave();
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -164,7 +167,97 @@ export function PDFSaveOptions({
     a.download = `${fileName.replace(".pdf", "")}-texto-extraido.txt`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Download iniciado!");
+    toast.success("Download TXT iniciado!");
+  };
+
+  const handleDownloadPdf = () => {
+    const content = getContentToSave();
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const maxWidth = pageWidth - margin * 2;
+    
+    doc.setFontSize(16);
+    doc.text("Documento Extraído", margin, 20);
+    
+    doc.setFontSize(10);
+    doc.text(`Arquivo: ${fileName}`, margin, 30);
+    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, margin, 36);
+    
+    doc.setFontSize(11);
+    const lines = doc.splitTextToSize(content, maxWidth);
+    let y = 50;
+    
+    for (const line of lines) {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(line, margin, y);
+      y += 6;
+    }
+    
+    doc.save(`${fileName.replace(".pdf", "")}-texto-extraido.pdf`);
+    toast.success("Download PDF iniciado!");
+  };
+
+  const handleDownloadDocx = async () => {
+    const content = getContentToSave();
+    const paragraphs = content.split("\n").filter(p => p.trim());
+    
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: "Documento Extraído",
+                bold: true,
+                size: 32,
+              }),
+            ],
+            heading: HeadingLevel.HEADING_1,
+          }),
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Arquivo: ${fileName} | Data: ${new Date().toLocaleDateString("pt-BR")}`,
+                italics: true,
+                size: 20,
+              }),
+            ],
+          }),
+          new Paragraph({ children: [] }),
+          ...paragraphs.map(text => 
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text,
+                  size: 22,
+                }),
+              ],
+            })
+          ),
+        ],
+      }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `${fileName.replace(".pdf", "")}-texto-extraido.docx`);
+    toast.success("Download Word iniciado!");
+  };
+
+  const handleDownloadOcr = () => {
+    // OCR específico - apenas o texto bruto extraído sem análise
+    const blob = new Blob([extractedText || ""], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${fileName.replace(".pdf", "")}-ocr.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Download OCR iniciado!");
   };
 
   const openDocumentDialog = () => {
@@ -202,9 +295,22 @@ export function PDFSaveOptions({
             Adicionar à Agenda
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDownload} className="cursor-pointer">
-            <Download className="w-4 h-4 mr-2" />
-            Fazer Download
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Formatos de Download</DropdownMenuLabel>
+          <DropdownMenuItem onClick={handleDownloadPdf} className="cursor-pointer">
+            <FileText className="w-4 h-4 mr-2" />
+            Baixar como PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDownloadDocx} className="cursor-pointer">
+            <FileType2 className="w-4 h-4 mr-2" />
+            Baixar como Word (.docx)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDownloadTxt} className="cursor-pointer">
+            <FileType className="w-4 h-4 mr-2" />
+            Baixar como Texto (.txt)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDownloadOcr} className="cursor-pointer" disabled={!extractedText}>
+            <ScanText className="w-4 h-4 mr-2" />
+            Baixar OCR (texto bruto)
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

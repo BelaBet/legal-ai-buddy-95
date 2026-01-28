@@ -73,8 +73,18 @@ export function PDFReader() {
   const [questionInput, setQuestionInput] = useState("");
   const [isAskingQuestion, setIsAskingQuestion] = useState(false);
   const [showOcrOption, setShowOcrOption] = useState(false);
+  const [autoAnalyze, setAutoAnalyze] = useState(false); // Flag para análise automática
   const abortControllerRef = useRef<AbortController | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-analyze when text is extracted and flag is set
+  useEffect(() => {
+    if (autoAnalyze && extractedText && extractedText.length >= 100 && uploadedFile && !isAnalyzing) {
+      console.log("[PDFReader] Iniciando análise automática...");
+      setAutoAnalyze(false); // Reset flag
+      analyzeDocument();
+    }
+  }, [extractedText, autoAnalyze, uploadedFile, isAnalyzing]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -273,7 +283,8 @@ export function PDFReader() {
       
       if (data.text && data.text.length > 0) {
         setExtractedText(data.text);
-        toast.success(`OCR concluído! ${data.text.length.toLocaleString()} caracteres extraídos de ${data.pages} página(s).`);
+        setAutoAnalyze(true); // Ativar análise automática após OCR
+        toast.success(`OCR concluído! Iniciando análise automática...`);
         console.log(`[PDFReader] OCR bem-sucedido: ${data.text.length} caracteres`);
       } else {
         toast.warning("O OCR não conseguiu extrair texto das imagens.");
@@ -330,10 +341,12 @@ export function PDFReader() {
       if (text.length < minTextLength) {
         console.warn(`[PDFReader] PDF com pouco texto extraível (${text.length} chars) - possivelmente escaneado`);
         setShowOcrOption(true);
+        setAutoAnalyze(false); // Não auto-analisar PDFs escaneados
         toast.warning("PDF carregado, mas pouco texto foi extraído. Use o OCR para documentos escaneados.");
       } else {
         setShowOcrOption(false);
-        toast.success(`PDF carregado! ${text.length.toLocaleString()} caracteres extraídos.`);
+        setAutoAnalyze(true); // Ativar análise automática
+        toast.success(`PDF carregado! Iniciando análise automática...`);
       }
       
       setExtractedText(text);

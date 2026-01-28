@@ -1,11 +1,46 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Upload, FileText, X, Sparkles, Copy, Download, CheckCircle, Send, MessageSquare, ScanText } from "lucide-react";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 import { supabase } from "@/integrations/supabase/client";
 
-// Configure PDF.js worker - use unpkg which mirrors npm versions exactly
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs`;
+// Worker sources in order of preference
+const WORKER_SOURCES = [
+  "https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs",
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs",
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs",
+];
+
+// Try to load worker from multiple sources with fallback
+const initializeWorker = async (): Promise<boolean> => {
+  for (const source of WORKER_SOURCES) {
+    try {
+      console.log(`[PDFReader] Tentando carregar worker de: ${source}`);
+      
+      // Test if the worker URL is accessible
+      const response = await fetch(source, { method: "HEAD", mode: "cors" });
+      
+      if (response.ok) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = source;
+        console.log(`[PDFReader] Worker carregado com sucesso de: ${source}`);
+        return true;
+      }
+    } catch (error) {
+      console.warn(`[PDFReader] Falha ao carregar worker de ${source}:`, error);
+    }
+  }
+  
+  // Fallback: try setting the first source anyway (might work with import)
+  console.warn("[PDFReader] Usando fonte de worker padrão como fallback");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER_SOURCES[0];
+  return false;
+};
+
+// Initialize worker immediately
+let workerInitialized = false;
+initializeWorker().then((success) => {
+  workerInitialized = success;
+});
 
 interface UploadedFile {
   name: string;

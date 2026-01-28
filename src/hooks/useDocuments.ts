@@ -32,6 +32,10 @@ export function useCreateDocument() {
 
   return useMutation({
     mutationFn: async (doc: { title: string; type: string; content?: string; status?: string }) => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
       const { data, error } = await supabase
         .from("documents")
         .insert({
@@ -39,6 +43,7 @@ export function useCreateDocument() {
           type: doc.type,
           content: doc.content || null,
           status: doc.status || "draft",
+          user_id: user.id, // Add user_id for RLS
         })
         .select()
         .single();

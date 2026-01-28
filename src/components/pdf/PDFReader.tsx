@@ -4,11 +4,11 @@ import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 import { supabase } from "@/integrations/supabase/client";
 
-// Worker sources in order of preference
+// Worker sources in order of preference - must match installed pdfjs-dist version (5.4.530)
 const WORKER_SOURCES = [
-  "https://unpkg.com/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs",
-  "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs",
-  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs",
+  "https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs",
+  "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs", 
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.530/pdf.worker.min.mjs",
 ];
 
 // Try to load worker from multiple sources with fallback

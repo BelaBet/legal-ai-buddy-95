@@ -52,28 +52,80 @@ export function PDFReader() {
     setIsExtracting(true);
     setExtractionProgress({ currentPage: 0, totalPages: 0 });
 
+    console.log(`[PDFReader] Iniciando extração do arquivo: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      console.log(`[PDFReader] ArrayBuffer criado: ${arrayBuffer.byteLength} bytes`);
+      
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      
+      loadingTask.onProgress = (progress: { loaded: number; total: number }) => {
+        if (progress.total > 0) {
+          console.log(`[PDFReader] Carregando PDF: ${Math.round((progress.loaded / progress.total) * 100)}%`);
+        }
+      };
+      
+      const pdf = await loadingTask.promise;
       const numPages = pdf.numPages;
+      console.log(`[PDFReader] PDF carregado com sucesso: ${numPages} páginas`);
+      
       let fullText = "";
 
       setExtractionProgress({ currentPage: 0, totalPages: numPages });
 
       for (let i = 1; i <= numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(" ");
-        fullText += `\n--- Página ${i} ---\n${pageText}`;
-        setExtractionProgress({ currentPage: i, totalPages: numPages });
+        try {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => item.str)
+            .join(" ");
+          fullText += `\n--- Página ${i} ---\n${pageText}`;
+          setExtractionProgress({ currentPage: i, totalPages: numPages });
+          
+          if (i % 10 === 0) {
+            console.log(`[PDFReader] Progresso: ${i}/${numPages} páginas extraídas`);
+          }
+        } catch (pageError) {
+          console.error(`[PDFReader] Erro ao extrair página ${i}:`, pageError);
+          fullText += `\n--- Página ${i} ---\n[Erro ao extrair texto desta página]`;
+        }
       }
 
+      console.log(`[PDFReader] Extração concluída: ${fullText.length} caracteres extraídos`);
       return fullText.trim();
-    } catch (error) {
-      console.error("Error extracting PDF text:", error);
-      throw new Error("Erro ao extrair texto do PDF");
+    } catch (error: any) {
+      console.error("[PDFReader] Erro na extração do PDF:", error);
+      
+      // Diagnóstico detalhado baseado no tipo de erro
+      let errorMessage = "Erro ao extrair texto do PDF";
+      let errorDetails = "";
+      
+      if (error?.name === "PasswordException") {
+        errorMessage = "PDF protegido por senha";
+        errorDetails = "Este PDF requer uma senha para ser aberto.";
+      } else if (error?.name === "InvalidPDFException") {
+        errorMessage = "PDF inválido ou corrompido";
+        errorDetails = "O arquivo não é um PDF válido ou está corrompido.";
+      } else if (error?.name === "MissingPDFException") {
+        errorMessage = "PDF não encontrado";
+        errorDetails = "O arquivo PDF está vazio ou não contém dados.";
+      } else if (error?.message?.includes("worker")) {
+        errorMessage = "Erro no worker do PDF.js";
+        errorDetails = `Versão do worker pode estar incompatível. Detalhes: ${error.message}`;
+      } else if (error?.message?.includes("fetch") || error?.message?.includes("network")) {
+        errorMessage = "Erro de rede";
+        errorDetails = "Problema ao carregar recursos necessários para processar o PDF.";
+      } else if (error?.message) {
+        errorDetails = error.message;
+      }
+      
+      console.error(`[PDFReader] Tipo de erro: ${error?.name || "Desconhecido"}`);
+      console.error(`[PDFReader] Mensagem: ${errorMessage}`);
+      console.error(`[PDFReader] Detalhes: ${errorDetails}`);
+      
+      throw new Error(`${errorMessage}${errorDetails ? `: ${errorDetails}` : ""}`);
     } finally {
       setIsExtracting(false);
       setExtractionProgress(null);
@@ -81,10 +133,29 @@ export function PDFReader() {
   };
 
   const processFile = async (file: File) => {
+    // Validação de tipo
     if (file.type !== "application/pdf") {
+      console.warn(`[PDFReader] Tipo de arquivo inválido: ${file.type}`);
       toast.error("Por favor, selecione apenas arquivos PDF");
       return;
     }
+    
+    // Validação de tamanho (máximo 50MB)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      console.warn(`[PDFReader] Arquivo muito grande: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+      toast.error("O arquivo é muito grande. Máximo permitido: 50MB");
+      return;
+    }
+    
+    // Validação de arquivo vazio
+    if (file.size === 0) {
+      console.warn(`[PDFReader] Arquivo vazio detectado`);
+      toast.error("O arquivo está vazio");
+      return;
+    }
+
+    console.log(`[PDFReader] Processando arquivo: ${file.name}`);
 
     setUploadedFile({
       name: file.name,
@@ -97,10 +168,18 @@ export function PDFReader() {
 
     try {
       const text = await extractTextFromPDF(file);
+      
+      if (text.length === 0) {
+        console.warn(`[PDFReader] PDF sem texto extraível (possivelmente escaneado)`);
+        toast.warning("PDF carregado, mas nenhum texto foi extraído. O documento pode ser uma imagem escaneada.");
+      } else {
+        toast.success(`PDF carregado! ${text.length.toLocaleString()} caracteres extraídos.`);
+      }
+      
       setExtractedText(text);
-      toast.success(`PDF carregado! ${text.length} caracteres extraídos.`);
-    } catch {
-      toast.error("Erro ao processar o PDF. Verifique se o arquivo não está corrompido.");
+    } catch (error: any) {
+      console.error("[PDFReader] Falha ao processar PDF:", error);
+      toast.error(error.message || "Erro ao processar o PDF. Verifique se o arquivo não está corrompido.");
       setUploadedFile(null);
     }
   };

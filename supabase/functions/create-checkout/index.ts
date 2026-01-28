@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const logStep = (step: string, details?: any) => {
@@ -40,11 +40,62 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil" 
     });
 
+    // Get the price to check its currency
+    const price = await stripe.prices.retrieve(priceId);
+    const targetCurrency = price.currency;
+    logStep("Target price currency", { currency: targetCurrency });
+
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    let customerId;
+    let customerId: string | undefined;
+    
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
       logStep("Existing customer found", { customerId });
+      
+      // Check for active subscriptions with different currency
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "active",
+        limit: 10,
+      });
+      
+      if (subscriptions.data.length > 0) {
+        const existingSub = subscriptions.data[0];
+        const existingCurrency = existingSub.currency;
+        logStep("Existing subscription found", { 
+          subscriptionId: existingSub.id, 
+          currency: existingCurrency 
+        });
+        
+        if (existingCurrency !== targetCurrency) {
+          logStep("Currency mismatch detected", { 
+            existing: existingCurrency, 
+            target: targetCurrency 
+          });
+          
+          return new Response(JSON.stringify({ 
+            error: "currency_mismatch",
+            message: `Você já possui uma assinatura ativa em ${existingCurrency.toUpperCase()}. Para assinar um plano em ${targetCurrency.toUpperCase()}, você precisa primeiro cancelar sua assinatura atual através do portal do cliente.`,
+            hasActiveSubscription: true,
+            existingCurrency: existingCurrency,
+            targetCurrency: targetCurrency
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
+        }
+        
+        // Same currency - user already has active subscription
+        logStep("User already has active subscription in same currency");
+        return new Response(JSON.stringify({ 
+          error: "already_subscribed",
+          message: "Você já possui uma assinatura ativa. Use o portal do cliente para gerenciar seu plano.",
+          hasActiveSubscription: true
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -57,8 +108,8 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/sales?success=true`,
-      cancel_url: `${req.headers.get("origin")}/sales?canceled=true`,
+      success_url: `${req.headers.get("origin")}/pricing?success=true`,
+      cancel_url: `${req.headers.get("origin")}/pricing?canceled=true`,
     });
 
     logStep("Checkout session created", { sessionId: session.id });

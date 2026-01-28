@@ -899,9 +899,39 @@ ${extractedText.substring(0, 30000)}${extractedText.length > 30000 ? "\n\n[... t
             </div>
 
             {isAnalyzing && !summary && (
-              <div className="flex flex-col items-center justify-center h-64">
-                <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-muted-foreground">Analisando documento...</p>
+              <div className="flex flex-col items-center justify-center h-64 space-y-6">
+                {/* Animated spinner */}
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-primary/20 rounded-full" />
+                  <div className="absolute inset-0 w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                  <Sparkles className="absolute inset-0 m-auto w-6 h-6 text-primary animate-pulse" />
+                </div>
+                
+                {/* Progress steps */}
+                <div className="space-y-2 text-center">
+                  <p className="font-medium text-foreground">Analisando documento...</p>
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      <span>Texto extraído com sucesso</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <span>Processando análise jurídica com IA...</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Progress bar animation */}
+                <div className="w-full max-w-xs">
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-primary via-primary/80 to-primary rounded-full animate-[progress_2s_ease-in-out_infinite]" 
+                         style={{ width: '60%', animation: 'progress 2s ease-in-out infinite' }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    Isso pode levar alguns segundos...
+                  </p>
+                </div>
               </div>
             )}
 

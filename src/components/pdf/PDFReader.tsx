@@ -48,6 +48,7 @@ interface UploadedFile {
   size: number;
   type: string;
   file: File;
+  pageCount?: number;
 }
 
 interface ExtractionProgress {
@@ -118,6 +119,9 @@ export function PDFReader() {
       const pdf = await loadingTask.promise;
       const numPages = pdf.numPages;
       console.log(`[PDFReader] PDF carregado com sucesso: ${numPages} páginas`);
+      
+      // Update page count in uploaded file
+      setUploadedFile(prev => prev ? { ...prev, pageCount: numPages } : null);
       
       let fullText = "";
 
@@ -810,6 +814,9 @@ ${extractedText.substring(0, 30000)}${extractedText.length > 30000 ? "\n\n[... t
                   <p className="font-medium truncate">{uploadedFile.name}</p>
                   <p className="text-sm text-muted-foreground">
                     {formatFileSize(uploadedFile.size)}
+                    {uploadedFile.pageCount && (
+                      <span className="ml-2">• {uploadedFile.pageCount} página{uploadedFile.pageCount > 1 ? 's' : ''}</span>
+                    )}
                   </p>
                 </div>
                 <button

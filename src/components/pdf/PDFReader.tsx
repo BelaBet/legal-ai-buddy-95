@@ -3,6 +3,7 @@ import { Upload, FileText, X, Sparkles, Copy, Download, CheckCircle, Send, Messa
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 import { supabase } from "@/integrations/supabase/client";
+import { PDFSaveOptions } from "./PDFSaveOptions";
 
 // Worker sources in order of preference - must match installed pdfjs-dist version (5.4.530)
 const WORKER_SOURCES = [
@@ -821,11 +822,19 @@ ${extractedText.substring(0, 30000)}${extractedText.length > 30000 ? "\n\n[... t
 
               {extractedText && (
                 <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                    <CheckCircle className="w-4 h-4" />
-                    <span>
-                      {extractedText.length.toLocaleString()} caracteres extraídos
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-success">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>
+                        {extractedText.length.toLocaleString()} caracteres extraídos
+                      </span>
+                    </div>
+                    <PDFSaveOptions
+                      extractedText={extractedText}
+                      summary={summary}
+                      fileName={uploadedFile.name}
+                      disabled={isAnalyzing || isOcrProcessing}
+                    />
                   </div>
                 </div>
               )}
@@ -941,7 +950,7 @@ ${extractedText.substring(0, 30000)}${extractedText.length > 30000 ? "\n\n[... t
                   <p className="font-medium text-foreground">Analisando documento...</p>
                   <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      <CheckCircle className="w-4 h-4 text-success" />
                       <span>Texto extraído com sucesso</span>
                     </div>
                     <div className="flex items-center justify-center gap-2">

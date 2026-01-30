@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, FileText, Calendar, Download, ChevronDown, Loader2, FileType, FileType2, ScanText } from "lucide-react";
+import { Save, FileText, Calendar, Download, ChevronDown, Loader2, FileType, FileType2, ScanText, Eye, EyeOff } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import { saveAs } from "file-saver";
@@ -19,9 +19,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCreateDocument } from "@/hooks/useDocuments";
 import { toast } from "sonner";
 
@@ -48,6 +54,7 @@ export function PDFSaveOptions({
   });
   const [eventTime, setEventTime] = useState("09:00");
   const [isSaving, setIsSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const createDocument = useCreateDocument();
 
@@ -341,6 +348,49 @@ export function PDFSaveOptions({
                 {extractedText && <li>Texto extraído ({extractedText.length.toLocaleString()} caracteres)</li>}
               </ul>
             </div>
+            
+            {/* Preview Section */}
+            <Collapsible open={showPreview} onOpenChange={setShowPreview}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <span className="flex items-center gap-2">
+                    {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPreview ? "Ocultar Preview" : "Ver Preview do Documento"}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showPreview ? "rotate-180" : ""}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3">
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted/30 px-3 py-2 border-b">
+                    <p className="text-xs font-medium text-muted-foreground">Preview do conteúdo que será salvo</p>
+                  </div>
+                  <ScrollArea className="h-[200px]">
+                    <div className="p-3 space-y-4 text-sm">
+                      {summary && (
+                        <div>
+                          <h4 className="font-semibold text-primary mb-2">📋 Análise do Documento</h4>
+                          <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed">
+                            {summary}
+                          </div>
+                        </div>
+                      )}
+                      {extractedText && (
+                        <div>
+                          <h4 className="font-semibold text-primary mb-2">📄 Texto Extraído</h4>
+                          <div className="whitespace-pre-wrap text-muted-foreground text-xs leading-relaxed">
+                            {extractedText.substring(0, 2000)}
+                            {extractedText.length > 2000 && (
+                              <span className="text-primary font-medium">... (+ {(extractedText.length - 2000).toLocaleString()} caracteres)</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDocumentDialog(false)}>

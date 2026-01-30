@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { 
   LayoutDashboard, 
-  FileText, 
+  FileText,
+  FilePlus,
   MessageSquare, 
   Upload, 
   Calendar, 
@@ -45,7 +46,8 @@ interface SidebarProps {
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "documents", label: "Documentos", icon: FileText },
+  { id: "documents", label: "Meus Documentos", icon: FileText },
+  { id: "document-creator", label: "Criar Documento", icon: FilePlus },
   { id: "assistant", label: "Assistente IA", icon: MessageSquare },
   { id: "pdf-reader", label: "Leitor PDF", icon: Upload },
   { id: "cases", label: "Casos", icon: FolderOpen },

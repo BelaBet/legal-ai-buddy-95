@@ -7,6 +7,7 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { AIChat } from "@/components/assistant/AIChat";
 import { PDFReader } from "@/components/pdf/PDFReader";
 import { DocumentCreator } from "@/components/documents/DocumentCreator";
+import { DocumentsPage } from "@/components/documents/DocumentsPage";
 import { CasesManager } from "@/components/cases/CasesManager";
 import { CalendarView } from "@/components/calendar/CalendarView";
 import { ProfilePage } from "@/components/profile/ProfilePage";
@@ -46,8 +47,10 @@ const Index = () => {
         return <AIChat />;
       case "pdf-reader":
         return <PDFReader />;
-      case "documents":
+      case "document-creator":
         return <DocumentCreator />;
+      case "documents":
+        return <DocumentsPage />;
       case "cases":
         return <CasesManager />;
       case "calendar":

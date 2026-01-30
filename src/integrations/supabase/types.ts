@@ -139,6 +139,41 @@ export type Database = {
         }
         Relationships: []
       }
+      document_shares: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          permission: string
+          shared_by: string
+          shared_with: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          permission?: string
+          shared_by: string
+          shared_with: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          permission?: string
+          shared_by?: string
+          shared_with?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_shares_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           content: string | null
@@ -427,6 +462,7 @@ export type Database = {
       cleanup_old_api_usage: { Args: never; Returns: undefined }
       delete_clickup_token: { Args: never; Returns: undefined }
       get_clickup_token: { Args: never; Returns: string }
+      get_document_owner_name: { Args: { p_user_id: string }; Returns: string }
       get_profiles_for_admin: {
         Args: never
         Returns: {
@@ -445,6 +481,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      search_users_for_sharing: {
+        Args: { search_term: string }
+        Returns: {
+          avatar_url: string
+          full_name: string
+          user_id: string
+        }[]
       }
       store_clickup_token: {
         Args: { p_token: string; p_user_id: string }

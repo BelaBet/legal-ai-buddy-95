@@ -21,7 +21,7 @@ import { useEvents, useCreateEvent, useDeleteEvent, useSendInvites, CalendarEven
 import { useNotifications } from "@/hooks/useNotifications";
 import { openGoogleCalendar, downloadICS } from "@/lib/calendarExport";
 import { SyncToClickUpButton } from "@/components/integrations/SyncToClickUpButton";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday, startOfDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Dialog,
@@ -71,6 +71,16 @@ export function CalendarView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: events = [], isLoading } = useEvents();
+
+  // Update event date to today when dialog opens
+  useEffect(() => {
+    if (isDialogOpen) {
+      setNewEvent((prev) => ({
+        ...prev,
+        event_date: format(new Date(), "yyyy-MM-dd"),
+      }));
+    }
+  }, [isDialogOpen]);
   const createEvent = useCreateEvent();
   const deleteEvent = useDeleteEvent();
   const sendInvites = useSendInvites();
@@ -213,9 +223,9 @@ export function CalendarView() {
 
   const days = getDaysInMonth();
 
-  const today = new Date();
+  const today = startOfDay(new Date());
   const upcomingEvents = events
-    .filter((e) => new Date(e.event_date) >= today)
+    .filter((e) => startOfDay(parseISO(e.event_date)) >= today)
     .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
     .slice(0, 5);
 

@@ -1,41 +1,40 @@
-import { useState } from "react";
-import { Plus, Search, FileText, Filter, Grid, List } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, FileText, Grid, List } from "lucide-react";
+import { startOfDay, endOfDay, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDocuments } from "@/hooks/useDocuments";
 import { DocumentCard } from "./DocumentCard";
 import { DocumentDialog } from "./DocumentDialog";
+import { DocumentFilters, DocumentFiltersState } from "./DocumentFilters";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const initialFilters: DocumentFiltersState = {
+  searchTerm: "",
+  typeFilter: "all",
+  statusFilter: "all",
+  createdFrom: undefined,
+  createdTo: undefined,
+  updatedFrom: undefined,
+  updatedTo: undefined,
+};
+
 export function DocumentsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [filters, setFilters] = useState<DocumentFiltersState>(initialFilters);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("my-documents");
 
   const { data: documents, isLoading } = useDocuments();
 
-  const filteredDocuments = documents?.filter((doc) => {
-    const matchesSearch =
-      doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || doc.type === typeFilter;
-    const matchesStatus = statusFilter === "all" || doc.status === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
-  });
-
-  const documentTypes = [...new Set(documents?.map((d) => d.type) || [])];
-  const documentStatuses = [...new Set(documents?.map((d) => d.status) || [])];
+  const documentTypes = useMemo(
+    () => [...new Set(documents?.map((d) => d.type) || [])],
+    [documents]
+  );
+  const documentStatuses = useMemo(
+    () => [...new Set(documents?.map((d) => d.status) || [])],
+    [documents]
+  );
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
@@ -46,6 +45,58 @@ export function DocumentsPage() {
     };
     return labels[status] || status;
   };
+
+  const filteredDocuments = useMemo(() => {
+    return documents?.filter((doc) => {
+      // Text search
+      const matchesSearch =
+        doc.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        doc.type.toLowerCase().includes(filters.searchTerm.toLowerCase());
+
+      // Type filter
+      const matchesType =
+        filters.typeFilter === "all" || doc.type === filters.typeFilter;
+
+      // Status filter
+      const matchesStatus =
+        filters.statusFilter === "all" || doc.status === filters.statusFilter;
+
+      // Created date filter
+      const docCreatedAt = parseISO(doc.created_at);
+      const matchesCreatedFrom =
+        !filters.createdFrom ||
+        docCreatedAt >= startOfDay(filters.createdFrom);
+      const matchesCreatedTo =
+        !filters.createdTo || docCreatedAt <= endOfDay(filters.createdTo);
+
+      // Updated date filter
+      const docUpdatedAt = parseISO(doc.updated_at);
+      const matchesUpdatedFrom =
+        !filters.updatedFrom ||
+        docUpdatedAt >= startOfDay(filters.updatedFrom);
+      const matchesUpdatedTo =
+        !filters.updatedTo || docUpdatedAt <= endOfDay(filters.updatedTo);
+
+      return (
+        matchesSearch &&
+        matchesType &&
+        matchesStatus &&
+        matchesCreatedFrom &&
+        matchesCreatedTo &&
+        matchesUpdatedFrom &&
+        matchesUpdatedTo
+      );
+    });
+  }, [documents, filters]);
+
+  const hasActiveFilters =
+    filters.searchTerm ||
+    filters.typeFilter !== "all" ||
+    filters.statusFilter !== "all" ||
+    filters.createdFrom ||
+    filters.createdTo ||
+    filters.updatedFrom ||
+    filters.updatedTo;
 
   return (
     <div className="space-y-6">
@@ -75,45 +126,16 @@ export function DocumentsPage() {
 
         <TabsContent value="my-documents" className="space-y-4 mt-4">
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar documentos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <DocumentFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                documentTypes={documentTypes}
+                documentStatuses={documentStatuses}
+                getStatusLabel={getStatusLabel}
               />
-            </div>
-            <div className="flex gap-2">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os tipos</SelectItem>
-                  {documentTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  {documentStatuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {getStatusLabel(status)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex border rounded-md">
+              <div className="flex border rounded-md ml-4">
                 <Button
                   variant={viewMode === "grid" ? "secondary" : "ghost"}
                   size="icon"
@@ -144,7 +166,7 @@ export function DocumentsPage() {
               <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium text-foreground">Nenhum documento encontrado</h3>
               <p className="text-muted-foreground mt-1">
-                {searchTerm || typeFilter !== "all" || statusFilter !== "all"
+                {hasActiveFilters
                   ? "Tente ajustar os filtros de busca"
                   : "Crie seu primeiro documento clicando no botão acima"}
               </p>

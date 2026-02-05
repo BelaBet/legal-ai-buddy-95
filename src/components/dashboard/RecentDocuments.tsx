@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { FileText, MoreVertical, Clock } from "lucide-react";
+import { FileText, MoreVertical, Clock, Eye, Pencil } from "lucide-react";
 import { useDocuments, Document } from "@/hooks/useDocuments";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DocumentDialog } from "@/components/documents/DocumentDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 const statusColors: Record<string, string> = {
   "draft": "bg-warning/10 text-warning",
@@ -20,7 +27,13 @@ const statusLabels: Record<string, string> = {
 export function RecentDocuments() {
   const { data: documents = [], isLoading } = useDocuments();
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [dialogMode, setDialogMode] = useState<"view" | "edit">("view");
   const recentDocs = documents.slice(0, 4);
+
+  const handleOpenDocument = (doc: Document, mode: "view" | "edit") => {
+    setDialogMode(mode);
+    setSelectedDocument(doc);
+  };
 
   if (isLoading) {
     return (
@@ -67,7 +80,7 @@ export function RecentDocuments() {
               key={doc.id}
               className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer fade-in"
               style={{ animationDelay: `${index * 50}ms` }}
-              onClick={() => setSelectedDocument(doc)}
+              onClick={() => handleOpenDocument(doc, "view")}
             >
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <FileText className="w-5 h-5 text-primary" />
@@ -86,12 +99,29 @@ export function RecentDocuments() {
               <span className={`text-xs px-3 py-1 rounded-full ${statusColors[doc.status] || statusColors.draft}`}>
                 {statusLabels[doc.status] || doc.status}
               </span>
-              <button 
-                className="p-1 hover:bg-muted rounded"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreVertical className="w-4 h-4 text-muted-foreground" />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenDocument(doc, "view");
+                  }}>
+                    <Eye className="w-4 h-4 mr-2" />
+                    Visualizar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenDocument(doc, "edit");
+                  }}>
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ))}
         </div>
@@ -100,7 +130,7 @@ export function RecentDocuments() {
       <DocumentDialog
         open={!!selectedDocument}
         onOpenChange={(open) => !open && setSelectedDocument(null)}
-        mode="view"
+        mode={dialogMode}
         document={selectedDocument}
       />
     </div>

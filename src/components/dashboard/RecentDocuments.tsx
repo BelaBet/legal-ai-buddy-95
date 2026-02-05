@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { FileText, MoreVertical, Clock, Eye, Pencil } from "lucide-react";
+import { FileText, MoreVertical, Clock, Eye, Pencil, Trash2 } from "lucide-react";
 import { useDocuments, Document } from "@/hooks/useDocuments";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DocumentDialog } from "@/components/documents/DocumentDialog";
+import { DeleteDocumentDialog } from "@/components/documents/DeleteDocumentDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ export function RecentDocuments() {
   const { data: documents = [], isLoading } = useDocuments();
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [dialogMode, setDialogMode] = useState<"view" | "edit">("view");
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
   const recentDocs = documents.slice(0, 4);
 
   const handleOpenDocument = (doc: Document, mode: "view" | "edit") => {
@@ -120,6 +123,17 @@ export function RecentDocuments() {
                     <Pencil className="w-4 h-4 mr-2" />
                     Editar
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDocumentToDelete(doc);
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Excluir
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -133,6 +147,14 @@ export function RecentDocuments() {
         mode={dialogMode}
         document={selectedDocument}
       />
+
+      {documentToDelete && (
+        <DeleteDocumentDialog
+          open={!!documentToDelete}
+          onOpenChange={(open) => !open && setDocumentToDelete(null)}
+          document={documentToDelete}
+        />
+      )}
     </div>
   );
 }

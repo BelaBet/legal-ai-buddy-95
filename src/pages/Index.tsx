@@ -15,6 +15,7 @@ import { FeatureRequestForm } from "@/components/features/FeatureRequestForm";
 import { IntegrationsPage } from "@/pages/Integrations";
 import { AdminUsersPage } from "@/components/admin/AdminUsersPage";
 import { SettingsPage } from "@/components/settings/SettingsPage";
+import { ChecklistsManager } from "@/components/checklists/ChecklistsManager";
 import Sales from "@/pages/Sales";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -53,6 +54,8 @@ const Index = () => {
         return <DocumentsPage />;
       case "cases":
         return <CasesManager />;
+      case "checklists":
+        return <ChecklistsManager />;
       case "calendar":
         return <CalendarView />;
       case "profile":

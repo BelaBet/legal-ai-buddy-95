@@ -18,11 +18,13 @@ import {
   FileText
 } from "lucide-react";
 import { useEvents, useCreateEvent, useDeleteEvent, useSendInvites, CalendarEvent, CreateEventData } from "@/hooks/useEvents";
+import { useChecklists } from "@/hooks/useChecklists";
 import { useNotifications } from "@/hooks/useNotifications";
 import { openGoogleCalendar, downloadICS } from "@/lib/calendarExport";
 import { SyncToClickUpButton } from "@/components/integrations/SyncToClickUpButton";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday, startOfDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { CheckSquare } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -71,7 +73,7 @@ export function CalendarView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: events = [], isLoading } = useEvents();
-
+  const { data: checklists = [] } = useChecklists();
   // Update event date to today when dialog opens
   useEffect(() => {
     if (isDialogOpen) {
@@ -123,6 +125,13 @@ export function CalendarView() {
 
   const getEventsForDay = (day: Date) => {
     return events.filter((e) => isSameDay(new Date(e.event_date), day));
+  };
+
+  const getChecklistsForDay = (day: Date) => {
+    return checklists.filter((c) => 
+      c.due_date && isSameDay(parseISO(c.due_date), day) && 
+      c.status !== "completed" && c.status !== "cancelled"
+    );
   };
 
   const prevMonth = () => {
@@ -229,6 +238,12 @@ export function CalendarView() {
     .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
     .slice(0, 5);
 
+  const upcomingChecklists = checklists
+    .filter((c) => c.due_date && c.status !== "completed" && c.status !== "cancelled")
+    .filter((c) => startOfDay(parseISO(c.due_date!)) >= today)
+    .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+    .slice(0, 3);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -305,7 +320,9 @@ export function CalendarView() {
           <div className="grid grid-cols-7 gap-1">
             {days.map((day, index) => {
               const dayEvents = day ? getEventsForDay(day) : [];
+              const dayChecklists = day ? getChecklistsForDay(day) : [];
               const isCurrentDay = day && isToday(day);
+              const hasItems = dayEvents.length > 0 || dayChecklists.length > 0;
               
               return (
                 <div
@@ -317,11 +334,11 @@ export function CalendarView() {
                   {day && (
                     <>
                       <span className="text-sm">{format(day, "d")}</span>
-                      {dayEvents.length > 0 && (
+                      {hasItems && (
                         <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-                          {dayEvents.slice(0, 3).map((event, i) => (
+                          {dayEvents.slice(0, 2).map((event, i) => (
                             <div
-                              key={i}
+                              key={`event-${i}`}
                               className={`w-1.5 h-1.5 rounded-full ${
                                 event.type === "hearing"
                                   ? "bg-primary"
@@ -329,6 +346,12 @@ export function CalendarView() {
                                   ? "bg-destructive"
                                   : "bg-success"
                               }`}
+                            />
+                          ))}
+                          {dayChecklists.slice(0, 2).map((_, i) => (
+                            <div
+                              key={`checklist-${i}`}
+                              className="w-1.5 h-1.5 rounded-full bg-warning"
                             />
                           ))}
                         </div>
@@ -466,6 +489,42 @@ export function CalendarView() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Upcoming Checklists */}
+          {upcomingChecklists.length > 0 && (
+            <div className="mt-6 pt-6 border-t">
+              <h4 className="font-serif text-lg font-semibold mb-4 flex items-center gap-2">
+                <CheckSquare className="w-5 h-5 text-warning" />
+                Prazos de Checklists
+              </h4>
+              <div className="space-y-3">
+                {upcomingChecklists.map((checklist, index) => (
+                  <div
+                    key={checklist.id}
+                    className="p-3 rounded-lg border-l-4 border-l-warning bg-warning/5 fade-in"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="flex items-start justify-between mb-1">
+                      <span className="text-xs font-medium text-warning uppercase">
+                        {checklist.priority === "urgent" ? "Urgente" : 
+                         checklist.priority === "high" ? "Alta" : 
+                         checklist.priority === "medium" ? "Média" : "Baixa"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {format(parseISO(checklist.due_date!), "dd MMM", { locale: ptBR })}
+                      </span>
+                    </div>
+                    <p className="font-medium text-sm">{checklist.title}</p>
+                    {checklist.client_name && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {checklist.client_name}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -57,6 +57,7 @@ export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [dayDetailsFilter, setDayDetailsFilter] = useState<"all" | "events" | "checklists">("all");
   const [newEvent, setNewEvent] = useState<CreateEventData>({
     title: "",
     description: "",
@@ -84,6 +85,13 @@ export function CalendarView() {
       }));
     }
   }, [isDialogOpen]);
+
+  // Reset filter when a new day is selected
+  useEffect(() => {
+    if (selectedDay) {
+      setDayDetailsFilter("all");
+    }
+  }, [selectedDay]);
   const createEvent = useCreateEvent();
   const deleteEvent = useDeleteEvent();
   const sendInvites = useSendInvites();
@@ -784,135 +792,175 @@ export function CalendarView() {
           </DialogHeader>
           
           {selectedDay && (
-            <div className="space-y-6 max-h-[60vh] overflow-y-auto">
-              {/* Events Section */}
-              <div>
-                <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-primary" />
-                  Eventos
-                </h4>
-                {getEventsForDay(selectedDay).length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Nenhum evento neste dia</p>
-                ) : (
-                  <div className="space-y-3">
-                    {getEventsForDay(selectedDay).map((event) => (
-                      <div
-                        key={event.id}
-                        className={`p-4 rounded-lg border-l-4 ${
-                          eventTypeConfig[event.type as keyof typeof eventTypeConfig]?.class || 
-                          eventTypeConfig.meeting.class
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <p className="font-medium text-base">{event.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {eventTypeConfig[event.type as keyof typeof eventTypeConfig]?.label || event.type}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => deleteEvent.mutate(event.id)}
-                            className="p-1 hover:bg-muted rounded transition-colors"
-                            title="Excluir evento"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </button>
-                        </div>
-
-                        {event.description && (
-                          <p className="text-sm text-muted-foreground mb-3">{event.description}</p>
-                        )}
-
-                        <div className="space-y-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            <span>{event.event_time}</span>
-                          </div>
-                          
-                          {event.location && (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4" />
-                              <span>{event.location}</span>
-                            </div>
-                          )}
-
-                          {event.meeting_link && (
-                            <div className="flex items-center gap-2">
-                              <Link2 className="w-4 h-4" />
-                              <button
-                                onClick={() => copyMeetingLink(event.meeting_link!)}
-                                className="text-primary hover:underline"
-                              >
-                                Copiar link
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {event.participants && event.participants.length > 0 && (
-                          <div className="mt-3 pt-3 border-t">
-                            <div className="flex items-center gap-1 text-sm mb-2">
-                              <Users className="w-4 h-4" />
-                              <span className="font-medium">{event.participants.length} participante(s)</span>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {event.participants.map((p, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs">
-                                  {p.name}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+            <div className="space-y-4">
+              {/* Filter Tabs */}
+              <div className="flex gap-2 border-b">
+                <button
+                  onClick={() => setDayDetailsFilter("all")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                    dayDetailsFilter === "all"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Todos ({getEventsForDay(selectedDay).length + getChecklistsForDay(selectedDay).length})
+                </button>
+                <button
+                  onClick={() => setDayDetailsFilter("events")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                    dayDetailsFilter === "events"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Eventos ({getEventsForDay(selectedDay).length})
+                </button>
+                <button
+                  onClick={() => setDayDetailsFilter("checklists")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                    dayDetailsFilter === "checklists"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Checklists ({getChecklistsForDay(selectedDay).length})
+                </button>
               </div>
 
-              {/* Checklists Section */}
-              <div className="border-t pt-4">
-                <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                  <CheckSquare className="w-5 h-5 text-warning" />
-                  Checklists com Prazo
-                </h4>
-                {getChecklistsForDay(selectedDay).length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Nenhum checklist com prazo neste dia</p>
-                ) : (
-                  <div className="space-y-3">
-                    {getChecklistsForDay(selectedDay).map((checklist) => (
-                      <div key={checklist.id} className="p-4 rounded-lg border border-warning/30 bg-warning/5">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <p className="font-medium text-base">{checklist.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Status: <span className="capitalize">{checklist.status}</span>
-                            </p>
-                          </div>
-                          <Badge 
-                            variant="outline"
-                            className={`text-xs ${
-                              checklist.priority === "urgent" ? "border-destructive text-destructive" :
-                              checklist.priority === "high" ? "border-orange-500 text-orange-600" :
-                              checklist.priority === "medium" ? "border-yellow-500 text-yellow-600" :
-                              "border-green-500 text-green-600"
+              <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+                {/* Events Section */}
+                {(dayDetailsFilter === "all" || dayDetailsFilter === "events") && (
+                  <div>
+                    <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      <Calendar className="w-5 h-5 text-primary" />
+                      Eventos
+                    </h4>
+                    {getEventsForDay(selectedDay).length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Nenhum evento neste dia</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {getEventsForDay(selectedDay).map((event) => (
+                          <div
+                            key={event.id}
+                            className={`p-4 rounded-lg border-l-4 ${
+                              eventTypeConfig[event.type as keyof typeof eventTypeConfig]?.class || 
+                              eventTypeConfig.meeting.class
                             }`}
                           >
-                            {checklist.priority}
-                          </Badge>
-                        </div>
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="font-medium text-base">{event.title}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {eventTypeConfig[event.type as keyof typeof eventTypeConfig]?.label || event.type}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => deleteEvent.mutate(event.id)}
+                                className="p-1 hover:bg-muted rounded transition-colors"
+                                title="Excluir evento"
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </button>
+                            </div>
 
-                        {checklist.description && (
-                          <p className="text-sm text-muted-foreground mb-3">{checklist.description}</p>
-                        )}
+                            {event.description && (
+                              <p className="text-sm text-muted-foreground mb-3">{event.description}</p>
+                            )}
 
-                        {checklist.client_name && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Cliente: <span className="font-medium">{checklist.client_name}</span>
-                          </p>
-                        )}
+                            <div className="space-y-2 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4" />
+                                <span>{event.event_time}</span>
+                              </div>
+                              
+                              {event.location && (
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-4 h-4" />
+                                  <span>{event.location}</span>
+                                </div>
+                              )}
+
+                              {event.meeting_link && (
+                                <div className="flex items-center gap-2">
+                                  <Link2 className="w-4 h-4" />
+                                  <button
+                                    onClick={() => copyMeetingLink(event.meeting_link!)}
+                                    className="text-primary hover:underline"
+                                  >
+                                    Copiar link
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {event.participants && event.participants.length > 0 && (
+                              <div className="mt-3 pt-3 border-t">
+                                <div className="flex items-center gap-1 text-sm mb-2">
+                                  <Users className="w-4 h-4" />
+                                  <span className="font-medium">{event.participants.length} participante(s)</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {event.participants.map((p, i) => (
+                                    <Badge key={i} variant="secondary" className="text-xs">
+                                      {p.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                  </div>
+                )}
+
+                {/* Checklists Section */}
+                {(dayDetailsFilter === "all" || dayDetailsFilter === "checklists") && (
+                  <div className={dayDetailsFilter === "all" ? "border-t pt-4" : ""}>
+                    <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                      <CheckSquare className="w-5 h-5 text-warning" />
+                      Checklists com Prazo
+                    </h4>
+                    {getChecklistsForDay(selectedDay).length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Nenhum checklist com prazo neste dia</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {getChecklistsForDay(selectedDay).map((checklist) => (
+                          <div key={checklist.id} className="p-4 rounded-lg border border-warning/30 bg-warning/5">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="font-medium text-base">{checklist.title}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Status: <span className="capitalize">{checklist.status}</span>
+                                </p>
+                              </div>
+                              <Badge 
+                                variant="outline"
+                                className={`text-xs ${
+                                  checklist.priority === "urgent" ? "border-destructive text-destructive" :
+                                  checklist.priority === "high" ? "border-orange-500 text-orange-600" :
+                                  checklist.priority === "medium" ? "border-yellow-500 text-yellow-600" :
+                                  "border-green-500 text-green-600"
+                                }`}
+                              >
+                                {checklist.priority}
+                              </Badge>
+                            </div>
+
+                            {checklist.description && (
+                              <p className="text-sm text-muted-foreground mb-3">{checklist.description}</p>
+                            )}
+
+                            {checklist.client_name && (
+                              <p className="text-sm text-muted-foreground mb-2">
+                                Cliente: <span className="font-medium">{checklist.client_name}</span>
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

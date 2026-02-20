@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,8 @@ export default function Auth() {
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   if (loading) {
     return (
@@ -82,6 +85,24 @@ export default function Auth() {
     setIsLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      toast.error("Erro ao enviar e-mail", { description: error.message });
+    } else {
+      toast.success("E-mail enviado!", {
+        description: "Verifique sua caixa de entrada para redefinir sua senha.",
+      });
+    }
+    setForgotLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
       <div className="w-full max-w-md">
@@ -97,9 +118,10 @@ export default function Auth() {
         <Card className="border-border/50 shadow-xl">
           <Tabs defaultValue="login" className="w-full">
             <CardHeader className="pb-4">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="login">Entrar</TabsTrigger>
                 <TabsTrigger value="register">Criar Conta</TabsTrigger>
+                <TabsTrigger value="forgot">Recuperar</TabsTrigger>
               </TabsList>
             </CardHeader>
 
@@ -195,6 +217,35 @@ export default function Auth() {
                       </>
                     ) : (
                       "Criar Conta"
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="forgot" className="mt-0">
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <CardDescription>
+                    Informe seu e-mail e enviaremos um link para redefinir sua senha.
+                  </CardDescription>
+                  <div className="space-y-2">
+                    <Label htmlFor="forgot-email">E-mail</Label>
+                    <Input
+                      id="forgot-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={forgotLoading}>
+                    {forgotLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      "Enviar Link de Recuperação"
                     )}
                   </Button>
                 </form>

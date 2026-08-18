@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { MobileNav } from "@/components/layout/MobileNav";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { RecentDocuments } from "@/components/dashboard/RecentDocuments";
 import { UpcomingDeadlines } from "@/components/dashboard/UpcomingDeadlines";
@@ -25,8 +26,7 @@ const Index = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case "dashboard":
-        return <div className="space-y-6"><div><h1 className="font-serif text-3xl font-bold text-foreground">Bem-vindo, {profile?.full_name?.split(" ")[0] || "Advogado"}!</h1><p className="text-muted-foreground mt-1">Seu assistente jurídico inteligente</p></div><StatsCards /><QuickActions onTabChange={setActiveTab} /><div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><RecentDocuments /><UpcomingDeadlines /></div></div>;
+      case "dashboard": return <div className="space-y-6"><div><h1 className="font-serif text-3xl font-bold text-foreground">Bem-vindo, {profile?.full_name?.split(" ")[0] || "Advogado"}!</h1><p className="text-muted-foreground mt-1">Seu assistente jurídico inteligente</p></div><StatsCards /><QuickActions onTabChange={setActiveTab} /><div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><RecentDocuments /><UpcomingDeadlines /></div></div>;
       case "assistant": return <AIChat />;
       case "pdf-reader": return <PDFReader />;
       case "document-creator": return <DocumentCreator />;
@@ -46,14 +46,7 @@ const Index = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <main className="min-w-0 p-4 pt-20 md:pt-8 md:ml-64 md:p-8">
-        {renderContent()}
-      </main>
-    </div>
-  );
+  return <div className="min-h-screen bg-background"><MobileNav activeTab={activeTab} onTabChange={setActiveTab} /><Sidebar activeTab={activeTab} onTabChange={setActiveTab} /><main className="min-w-0 p-4 pt-20 md:pt-8 md:ml-64 md:p-8">{renderContent()}</main></div>;
 };
 
 export default Index;

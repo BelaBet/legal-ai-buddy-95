@@ -2,3 +2,6 @@ project_id = "spsfvgcvibtftnkoxodb"
 
 [functions.legal-chat]
 verify_jwt = true
+
+[functions.admin-update-role]
+verify_jwt = true

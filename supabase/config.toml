@@ -1,10 +1,4 @@
 project_id = "spsfvgcvibtftnkoxodb"
 
 [functions.legal-chat]
-verify_jwt = false
-
-[functions.pdf-ocr]
-verify_jwt = false
-
-[functions.suggest-checklist-items]
-verify_jwt = false
+verify_jwt = true

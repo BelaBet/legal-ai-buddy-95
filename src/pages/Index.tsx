@@ -26,61 +26,30 @@ const Index = () => {
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
-        return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="font-serif text-3xl font-bold text-foreground">
-                Bem-vindo, {profile?.full_name?.split(" ")[0] || "Advogado"}!
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Seu assistente jurídico inteligente
-              </p>
-            </div>
-            <StatsCards />
-            <QuickActions onTabChange={setActiveTab} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RecentDocuments />
-              <UpcomingDeadlines />
-            </div>
-          </div>
-        );
-      case "assistant":
-        return <AIChat />;
-      case "pdf-reader":
-        return <PDFReader />;
-      case "document-creator":
-        return <DocumentCreator />;
-      case "documents":
-        return <DocumentsPage />;
-      case "cases":
-        return <CasesManager />;
-      case "checklists":
-        return <ChecklistsManager />;
-      case "calendar":
-        return <CalendarView />;
-      case "profile":
-        return <ProfilePage />;
-      case "feature-request":
-        return <FeatureRequestForm />;
-      case "integrations":
-        return <IntegrationsPage />;
-      case "admin":
-        return <AdminUsersPage />;
+        return <div className="space-y-6"><div><h1 className="font-serif text-3xl font-bold text-foreground">Bem-vindo, {profile?.full_name?.split(" ")[0] || "Advogado"}!</h1><p className="text-muted-foreground mt-1">Seu assistente jurídico inteligente</p></div><StatsCards /><QuickActions onTabChange={setActiveTab} /><div className="grid grid-cols-1 lg:grid-cols-2 gap-6"><RecentDocuments /><UpcomingDeadlines /></div></div>;
+      case "assistant": return <AIChat />;
+      case "pdf-reader": return <PDFReader />;
+      case "document-creator": return <DocumentCreator />;
+      case "documents": return <DocumentsPage />;
+      case "cases": return <CasesManager />;
+      case "checklists": return <ChecklistsManager />;
+      case "calendar": return <CalendarView />;
+      case "profile": return <ProfilePage />;
+      case "feature-request": return <FeatureRequestForm />;
+      case "integrations": return <IntegrationsPage />;
+      case "admin": return <AdminUsersPage />;
       case "settings":
       case "notifications":
-      case "billing":
-        return <SettingsPage />;
-      case "sales":
-        return <Sales />;
-      default:
-        return null;
+      case "billing": return <SettingsPage />;
+      case "sales": return <Sales />;
+      default: return null;
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <main className="ml-64 p-8">
+      <main className="min-w-0 p-4 pt-20 md:pt-8 md:ml-64 md:p-8">
         {renderContent()}
       </main>
     </div>

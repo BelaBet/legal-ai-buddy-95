@@ -10,17 +10,21 @@ export interface Document {
   status: string;
   created_at: string;
   updated_at: string;
+  user_id: string | null;
+}
+
+async function requireUser() {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) throw new Error("Usuário não autenticado");
+  return user;
 }
 
 export function useDocuments() {
   return useQuery({
     queryKey: ["documents"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("documents")
-        .select("*")
-        .order("updated_at", { ascending: false });
-
+      await requireUser();
+      const { data, error } = await supabase.from("documents").select("*").order("updated_at", { ascending: false });
       if (error) throw error;
       return data as Document[];
     },
@@ -29,25 +33,18 @@ export function useDocuments() {
 
 export function useCreateDocument() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (doc: { title: string; type: string; content?: string; status?: string }) => {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      const { data, error } = await supabase
-        .from("documents")
-        .insert({
-          title: doc.title,
-          type: doc.type,
-          content: doc.content || null,
-          status: doc.status || "draft",
-          user_id: user.id, // Add user_id for RLS
-        })
-        .select()
-        .single();
-
+      const user = await requireUser();
+      const title = doc.title.trim();
+      if (!title) throw new Error("O título do documento é obrigatório");
+      const { data, error } = await supabase.from("documents").insert({
+        title,
+        type: doc.type,
+        content: doc.content || null,
+        status: doc.status || "draft",
+        user_id: user.id,
+      }).select().single();
       if (error) throw error;
       return data;
     },
@@ -55,25 +52,19 @@ export function useCreateDocument() {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       toast.success("Documento criado com sucesso!");
     },
-    onError: (error) => {
-      console.error("Error creating document:", error);
-      toast.error("Erro ao criar documento");
-    },
+    onError: (error) => toast.error(error.message || "Erro ao criar documento"),
   });
 }
 
 export function useUpdateDocument() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Document> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("documents")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
-
+      await requireUser();
+      const safeUpdates = { ...updates };
+      delete (safeUpdates as Partial<Document>).id;
+      delete (safeUpdates as Partial<Document>).user_id;
+      const { data, error } = await supabase.from("documents").update(safeUpdates).eq("id", id).select().single();
       if (error) throw error;
       return data;
     },
@@ -81,9 +72,6 @@ export function useUpdateDocument() {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       toast.success("Documento salvo!");
     },
-    onError: (error) => {
-      console.error("Error updating document:", error);
-      toast.error("Erro ao salvar documento");
-    },
+    onError: (error) => toast.error(error.message || "Erro ao salvar documento"),
   });
 }

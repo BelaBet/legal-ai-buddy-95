@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, FileText, BookOpen, Lightbulb, Scale, Paperclip, X, Image, File } from "lucide-react";
+import { Send, Sparkles, FileText, BookOpen, Lightbulb, Scale, Paperclip, X, Image, File, LayoutGrid } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DOMPurify from "dompurify";
 import { supabase } from "@/integrations/supabase/client";
+import { PromptTemplateGallery } from "./PromptTemplateGallery";
 
 interface Attachment {
   id: string;
@@ -42,6 +43,7 @@ export function AIChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -261,9 +263,14 @@ export function AIChat() {
         {isLoading && messages[messages.length - 1]?.role !== "assistant" && <div className="ai-message assistant fade-in"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-gold-warm rounded-full animate-bounce" /><div className="w-2 h-2 bg-gold-warm rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} /><div className="w-2 h-2 bg-gold-warm rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} /></div></div>}
         <div ref={messagesEndRef} />
       </div>
-      {messages.length <= 2 && <div className="flex gap-3 mb-4 overflow-x-auto pb-2">{suggestions.map((suggestion, index) => <button key={index} onClick={() => handleSuggestionClick(suggestion.text)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent hover:bg-accent/80 transition-colors whitespace-nowrap"><suggestion.icon className="w-4 h-4 text-gold-warm" /><span className="text-sm font-medium">{suggestion.text}</span></button>)}</div>}
+      {messages.length <= 2 && <div className="flex gap-3 mb-4 overflow-x-auto pb-2">{suggestions.map((suggestion, index) => <button key={index} onClick={() => handleSuggestionClick(suggestion.text)} className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent hover:bg-accent/80 transition-colors whitespace-nowrap"><suggestion.icon className="w-4 h-4 text-gold-warm" /><span className="text-sm font-medium">{suggestion.text}</span></button>)}<button onClick={() => setShowTemplateGallery(true)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-dashed border-gold-warm/50 hover:bg-accent/80 transition-colors whitespace-nowrap"><LayoutGrid className="w-4 h-4 text-gold-warm" /><span className="text-sm font-medium">Ver todos os templates</span></button></div>}
       {attachments.length > 0 && <div className="flex flex-wrap gap-2 mb-2 p-3 bg-muted/50 rounded-lg">{attachments.map((att) => <div key={att.id} className="relative group">{att.type === "image" && att.preview ? <div className="relative"><img src={att.preview} alt={att.file.name} className="w-16 h-16 object-cover rounded-lg border border-border" /><button onClick={() => removeAttachment(att.id)} className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button></div> : <div className="relative flex items-center gap-2 px-3 py-2 bg-background rounded-lg border border-border">{getAttachmentIcon(att.type)}<span className="text-xs truncate max-w-[80px]">{att.file.name}</span><button onClick={() => removeAttachment(att.id)} className="w-4 h-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center"><X className="w-2.5 h-2.5" /></button></div>}</div>)}</div>}
-      <div className="legal-card !p-4"><div className="flex items-center gap-3"><input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" multiple className="hidden" /><button onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50" title="Anexar arquivo"><Paperclip className="w-5 h-5 text-muted-foreground" /></button><input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Digite sua pergunta jurídica..." className="legal-input flex-1" disabled={isLoading} /><button onClick={handleSend} disabled={isLoading || (!input.trim() && attachments.length === 0)} className="legal-button-gold !px-4 !py-3 disabled:opacity-50 disabled:cursor-not-allowed"><Send className="w-5 h-5" /></button></div></div>
+      <div className="legal-card !p-4"><div className="flex items-center gap-3"><input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" multiple className="hidden" /><button onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50" title="Anexar arquivo"><Paperclip className="w-5 h-5 text-muted-foreground" /></button><button onClick={() => setShowTemplateGallery(true)} disabled={isLoading} className="p-3 rounded-lg bg-muted hover:bg-muted/80 transition-colors disabled:opacity-50" title="Templates de prompts"><LayoutGrid className="w-5 h-5 text-muted-foreground" /></button><input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Digite sua pergunta jurídica..." className="legal-input flex-1" disabled={isLoading} /><button onClick={handleSend} disabled={isLoading || (!input.trim() && attachments.length === 0)} className="legal-button-gold !px-4 !py-3 disabled:opacity-50 disabled:cursor-not-allowed"><Send className="w-5 h-5" /></button></div></div>
+      <PromptTemplateGallery
+        open={showTemplateGallery}
+        onOpenChange={setShowTemplateGallery}
+        onSelectTemplate={(prompt) => setInput(prompt)}
+      />
     </div>
   );
 }

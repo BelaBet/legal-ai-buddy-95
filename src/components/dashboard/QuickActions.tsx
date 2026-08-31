@@ -1,10 +1,21 @@
-import { FileText, Upload, MessageSquare, FolderPlus } from "lucide-react";
+import { FileText, Upload, MessageSquare, FolderPlus, ClipboardList } from "lucide-react";
+import { generateIntakeChecklistPdf } from "@/lib/intakeChecklistPdf";
 
 interface QuickActionsProps {
   onTabChange: (tab: string) => void;
 }
 
-const actions = [
+interface QuickAction {
+  id: string;
+  title: string;
+  description: string;
+  icon: typeof FileText;
+  color: string;
+  // When present, runs instead of navigating to a tab (e.g. a direct download).
+  onClick?: () => void;
+}
+
+const baseActions: Omit<QuickAction, "onClick">[] = [
   {
     id: "documents",
     title: "Criar Documento",
@@ -36,14 +47,26 @@ const actions = [
 ];
 
 export function QuickActions({ onTabChange }: QuickActionsProps) {
+  const actions: QuickAction[] = [
+    ...baseActions,
+    {
+      id: "intake-checklist",
+      title: "Checklist de Coleta",
+      description: "PDF para o cliente preencher",
+      icon: ClipboardList,
+      color: "bg-warning/10 text-warning",
+      onClick: () => generateIntakeChecklistPdf(),
+    },
+  ];
+
   return (
     <div className="legal-card">
       <h3 className="font-serif text-xl font-semibold mb-4">Ações Rápidas</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {actions.map((action, index) => (
           <button
             key={action.id}
-            onClick={() => onTabChange(action.id)}
+            onClick={() => (action.onClick ? action.onClick() : onTabChange(action.id))}
             className="p-4 rounded-xl bg-muted/50 hover:bg-muted transition-all text-left group fade-in"
             style={{ animationDelay: `${index * 50}ms` }}
           >

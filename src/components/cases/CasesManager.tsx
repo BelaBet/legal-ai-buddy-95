@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { FolderOpen, Plus, Search, Filter, MoreVertical, Calendar, FileText, User, X, ChevronDown } from "lucide-react";
+import { FolderOpen, Plus, Search, Filter, MoreVertical, Calendar, FileText, User, X, ChevronDown, ClipboardList } from "lucide-react";
+import { generateIntakeChecklistPdf } from "@/lib/intakeChecklistPdf";
 import { useCases, useCreateCase, useDeleteCase, Case } from "@/hooks/useCases";
 import { useDocuments } from "@/hooks/useDocuments";
 import { format, isAfter, isBefore, startOfDay, endOfDay, subDays, subMonths } from "date-fns";
@@ -169,13 +170,23 @@ export function CasesManager() {
               <p className="text-muted-foreground">Organize e acompanhe seus processos</p>
             </div>
           </div>
-          <button 
-            onClick={() => setIsDialogOpen(true)}
-            className="legal-button-primary flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Novo Caso
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => generateIntakeChecklistPdf()}
+              className="px-6 py-3 rounded-lg font-medium transition-all duration-300 border border-border hover:bg-muted flex items-center gap-2"
+              title="Baixe um checklist em PDF para o cliente preencher antes de você lançar os dados no sistema"
+            >
+              <ClipboardList className="w-5 h-5" />
+              Checklist de Coleta (PDF)
+            </button>
+            <button
+              onClick={() => setIsDialogOpen(true)}
+              className="legal-button-primary flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Novo Caso
+            </button>
+          </div>
         </div>
       </div>
 

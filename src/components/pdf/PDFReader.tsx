@@ -5,6 +5,20 @@ import * as pdfjsLib from "pdfjs-dist";
 import { supabase } from "@/integrations/supabase/client";
 import { PDFSaveOptions } from "./PDFSaveOptions";
 
+// Narrow an unknown catch value down to the fields we actually read (name/message),
+// without resorting to `any`.
+function asErrorLike(error: unknown): { name?: string; message?: string } {
+  if (error instanceof Error) return { name: error.name, message: error.message };
+  if (typeof error === "object" && error !== null) {
+    const { name, message } = error as { name?: unknown; message?: unknown };
+    return {
+      name: typeof name === "string" ? name : undefined,
+      message: typeof message === "string" ? message : undefined,
+    };
+  }
+  return {};
+}
+
 // Dynamically match worker version to installed pdfjs-dist version
 const PDFJS_VERSION = pdfjsLib.version;
 const WORKER_SOURCES = [
@@ -133,7 +147,7 @@ export function PDFReader() {
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
           const pageText = textContent.items
-            .map((item: any) => item.str)
+            .map((item) => ("str" in item ? item.str : ""))
             .join(" ");
           fullText += `\n--- Página ${i} ---\n${pageText}`;
           setExtractionProgress({ currentPage: i, totalPages: numPages });
@@ -149,13 +163,14 @@ export function PDFReader() {
 
       console.log(`[PDFReader] Extração concluída: ${fullText.length} caracteres extraídos`);
       return fullText.trim();
-    } catch (error: any) {
-      console.error("[PDFReader] Erro na extração do PDF:", error);
-      
+    } catch (rawError) {
+      const error = asErrorLike(rawError);
+      console.error("[PDFReader] Erro na extração do PDF:", rawError);
+
       // Diagnóstico detalhado baseado no tipo de erro
       let errorMessage = "Erro ao extrair texto do PDF";
       let errorDetails = "";
-      
+
       if (error?.name === "PasswordException") {
         errorMessage = "PDF protegido por senha";
         errorDetails = "Este PDF requer uma senha para ser aberto.";
@@ -174,7 +189,7 @@ export function PDFReader() {
       } else if (error?.message) {
         errorDetails = error.message;
       }
-      
+
       console.error(`[PDFReader] Tipo de erro: ${error?.name || "Desconhecido"}`);
       console.error(`[PDFReader] Mensagem: ${errorMessage}`);
       console.error(`[PDFReader] Detalhes: ${errorDetails}`);
@@ -306,9 +321,9 @@ export function PDFReader() {
         setAutoAnalyze(true); // Ativar análise automática
         toast.success(`PDF carregado! Iniciando análise automática...`);
       }
-    } catch (error: any) {
-      console.error("[PDFReader] Falha ao processar PDF:", error);
-      toast.error(error.message || "Erro ao processar o PDF. Verifique se o arquivo não está corrompido.");
+    } catch (rawError) {
+      console.error("[PDFReader] Falha ao processar PDF:", rawError);
+      toast.error(asErrorLike(rawError).message || "Erro ao processar o PDF. Verifique se o arquivo não está corrompido.");
       setUploadedFile(null);
     }
   };
@@ -382,9 +397,9 @@ export function PDFReader() {
         toast.warning("O OCR não conseguiu extrair texto das imagens.");
         setShowOcrOption(true);
       }
-    } catch (error: any) {
-      console.error("[PDFReader] Erro no OCR:", error);
-      toast.error(error.message || "Erro ao processar OCR.");
+    } catch (rawError) {
+      console.error("[PDFReader] Erro no OCR:", rawError);
+      toast.error(asErrorLike(rawError).message || "Erro ao processar OCR.");
       setShowOcrOption(true);
     } finally {
       setIsOcrProcessing(false);
@@ -639,9 +654,9 @@ ${extractedText.substring(0, 30000)}${extractedText.length > 30000 ? "\n\n[... t
           }
         }
       }
-    } catch (error: any) {
-      if (error.name !== "AbortError") {
-        console.error("Analysis error:", error);
+    } catch (rawError) {
+      if (asErrorLike(rawError).name !== "AbortError") {
+        console.error("Analysis error:", rawError);
         toast.error("Erro ao analisar documento. Tente novamente.");
       }
     } finally {

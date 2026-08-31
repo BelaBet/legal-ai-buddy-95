@@ -178,7 +178,12 @@ export function TemplateDialog({ open, onOpenChange, template }: TemplateDialogP
       if (error) throw error;
       
       if (data?.suggestions) {
-        const newItems = data.suggestions.map((s: any) => ({
+        const newItems = (data.suggestions as Array<{
+          title: string;
+          description?: string;
+          days_before_deadline?: number;
+          is_required?: boolean;
+        }>).map((s) => ({
           title: s.title,
           description: s.description || "",
           days_before_deadline: s.days_before_deadline || 0,

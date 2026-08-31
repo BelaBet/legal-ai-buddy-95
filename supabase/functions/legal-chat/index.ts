@@ -39,7 +39,12 @@ Deno.serve(async (req) => {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return jsonError("Sessão inválida ou expirada", 401);
 
-  let body: { messages?: Array<{ role: "user" | "assistant"; content: string }> };
+  type TextPart = { type: "text"; text: string };
+  type ImagePart = { type: "image_url"; image_url: { url: string } };
+  type ContentPart = TextPart | ImagePart;
+  type IncomingMessage = { role: "user" | "assistant"; content: string | ContentPart[] };
+
+  let body: { messages?: IncomingMessage[] };
   try {
     body = await req.json();
   } catch {
@@ -49,11 +54,46 @@ Deno.serve(async (req) => {
   const messages = body.messages;
   if (!Array.isArray(messages) || messages.length === 0) return jsonError("Informe pelo menos uma mensagem", 400);
 
+  const MAX_TEXT_LENGTH = 20000;
+  const MAX_IMAGE_DATA_URL_LENGTH = 15_000_000; // ~11MB decoded, matches frontend's 10MB file cap with base64 overhead
+  const MAX_IMAGES_PER_MESSAGE = 5;
+
+  function sanitizeContent(content: unknown): string | ContentPart[] | null {
+    // Plain text message
+    if (typeof content === "string") {
+      const text = content.slice(0, MAX_TEXT_LENGTH);
+      return text.trim().length > 0 ? text : null;
+    }
+
+    // Multimodal message: array of text/image parts (used for image attachments)
+    if (Array.isArray(content)) {
+      const parts: ContentPart[] = [];
+      let imageCount = 0;
+      for (const part of content) {
+        if (!part || typeof part !== "object") continue;
+        if (part.type === "text" && typeof part.text === "string") {
+          const text = part.text.slice(0, MAX_TEXT_LENGTH);
+          if (text.trim().length > 0) parts.push({ type: "text", text });
+        } else if (part.type === "image_url" && typeof part.image_url?.url === "string") {
+          if (imageCount >= MAX_IMAGES_PER_MESSAGE) continue;
+          const url = part.image_url.url;
+          if (url.startsWith("data:image/") && url.length <= MAX_IMAGE_DATA_URL_LENGTH) {
+            parts.push({ type: "image_url", image_url: { url } });
+            imageCount++;
+          }
+        }
+      }
+      return parts.length > 0 ? parts : null;
+    }
+
+    return null;
+  }
+
   const safeMessages = messages
     .filter((message) => message && ["user", "assistant"].includes(message.role))
     .slice(-20)
-    .map((message) => ({ role: message.role, content: String(message.content || "").slice(0, 20000) }))
-    .filter((message) => message.content.trim().length > 0);
+    .map((message) => ({ role: message.role, content: sanitizeContent(message.content) }))
+    .filter((message): message is { role: "user" | "assistant"; content: string | ContentPart[] } => message.content !== null);
 
   if (!safeMessages.length) return jsonError("Nenhuma mensagem válida foi enviada", 400);
 

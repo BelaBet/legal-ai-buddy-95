@@ -169,7 +169,7 @@ export async function fetchClickUpWorkspaces(apiToken: string): Promise<ClickUpW
     if (!response.ok) throw new Error("Failed to fetch workspaces");
 
     const data = await response.json();
-    return data.teams.map((team: any) => ({
+    return data.teams.map((team: Record<string, unknown>) => ({
       id: team.id,
       name: team.name,
     }));
@@ -200,7 +200,7 @@ export async function fetchClickUpLists(apiToken: string, workspaceId: string): 
 
       if (listsResponse.ok) {
         const listsData = await listsResponse.json();
-        lists.push(...listsData.lists.map((list: any) => ({
+        lists.push(...listsData.lists.map((list: Record<string, unknown>) => ({
           id: list.id,
           name: `${space.name} / ${list.name}`,
         })));
@@ -214,7 +214,7 @@ export async function fetchClickUpLists(apiToken: string, workspaceId: string): 
       if (foldersResponse.ok) {
         const foldersData = await foldersResponse.json();
         for (const folder of foldersData.folders) {
-          lists.push(...folder.lists.map((list: any) => ({
+          lists.push(...folder.lists.map((list: Record<string, unknown>) => ({
             id: list.id,
             name: `${space.name} / ${folder.name} / ${list.name}`,
           })));
@@ -274,7 +274,7 @@ export async function fetchClickUpTasks(apiToken: string, listId: string): Promi
     if (!response.ok) throw new Error("Failed to fetch tasks");
 
     const data = await response.json();
-    return data.tasks.map((task: any) => ({
+    return data.tasks.map((task: Record<string, unknown>) => ({
       id: task.id,
       name: task.name,
       description: task.description,

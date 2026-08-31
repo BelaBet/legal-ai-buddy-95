@@ -7,123 +7,103 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
+function response(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+const logStep = (step: string, details?: Record<string, unknown>) => {
+  console.log(`[CREATE-CHECKOUT] ${step}${details ? ` - ${JSON.stringify(details)}` : ""}`);
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-  );
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return response({ error: "Método não permitido" }, 405);
 
   try {
-    logStep("Function started");
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) return response({ error: "Autenticação obrigatória" }, 401);
 
-    const { priceId } = await req.json();
-    if (!priceId) throw new Error("Price ID is required");
-    logStep("Price ID received", { priceId });
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!supabaseUrl || !supabaseAnonKey) return response({ error: "Configuração do Supabase ausente" }, 500);
+    if (!stripeKey) return response({ error: "STRIPE_SECRET_KEY não configurada" }, 503);
 
-    const authHeader = req.headers.get("Authorization")!;
-    const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
+    let payload: { priceId?: unknown };
+    try {
+      payload = await req.json();
+    } catch {
+      return response({ error: "Corpo da requisição inválido" }, 400);
+    }
+
+    const priceId = typeof payload.priceId === "string" ? payload.priceId.trim() : "";
+    if (!priceId) return response({ error: "Price ID é obrigatório" }, 400);
+
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
+    const token = authHeader.slice("Bearer ".length);
+    const { data, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !data.user?.email) return response({ error: "Sessão inválida ou expirada" }, 401);
+
     const user = data.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { userId: user.id, email: user.email });
-
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
-      apiVersion: "2025-08-27.basil" 
-    });
-
-    // Get the price to check its currency
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const price = await stripe.prices.retrieve(priceId);
-    const targetCurrency = price.currency;
-    logStep("Target price currency", { currency: targetCurrency });
+    if (!price.active || price.type !== "recurring") return response({ error: "Plano de assinatura inválido ou inativo" }, 400);
 
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    let customerId: string | undefined;
-    
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
-      logStep("Existing customer found", { customerId });
-      
-      // Check for active subscriptions with different currency
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customerId,
-        status: "active",
-        limit: 10,
-      });
-      
-      if (subscriptions.data.length > 0) {
-        const existingSub = subscriptions.data[0];
+    const targetCurrency = price.currency;
+    const customers = await stripe.customers.list({ email: user.email, limit: 10 });
+    const customer = customers.data.find((candidate) => candidate.metadata?.supabase_user_id === user.id)
+      ?? customers.data[0];
+    let customerId = customer?.id;
+
+    if (customerId) {
+      const subscriptions = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 10 });
+      const existingSub = subscriptions.data[0];
+      if (existingSub) {
         const existingCurrency = existingSub.currency;
-        logStep("Existing subscription found", { 
-          subscriptionId: existingSub.id, 
-          currency: existingCurrency 
-        });
-        
         if (existingCurrency !== targetCurrency) {
-          logStep("Currency mismatch detected", { 
-            existing: existingCurrency, 
-            target: targetCurrency 
-          });
-          
-          return new Response(JSON.stringify({ 
+          return response({
             error: "currency_mismatch",
-            message: `Você já possui uma assinatura ativa em ${existingCurrency.toUpperCase()}. Para assinar um plano em ${targetCurrency.toUpperCase()}, você precisa primeiro cancelar sua assinatura atual através do portal do cliente.`,
+            message: `Você já possui uma assinatura ativa em ${existingCurrency.toUpperCase()}. Cancele ou gerencie a assinatura atual antes de trocar de moeda.`,
             hasActiveSubscription: true,
-            existingCurrency: existingCurrency,
-            targetCurrency: targetCurrency
-          }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 400,
-          });
+            existingCurrency,
+            targetCurrency,
+          }, 400);
         }
-        
-        // Same currency - user already has active subscription
-        logStep("User already has active subscription in same currency");
-        return new Response(JSON.stringify({ 
+        return response({
           error: "already_subscribed",
           message: "Você já possui uma assinatura ativa. Use o portal do cliente para gerenciar seu plano.",
-          hasActiveSubscription: true
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 400,
-        });
+          hasActiveSubscription: true,
+        }, 400);
       }
     }
 
+    if (!customerId) {
+      const createdCustomer = await stripe.customers.create({
+        email: user.email,
+        metadata: { supabase_user_id: user.id },
+      });
+      customerId = createdCustomer.id;
+    }
+
+    const origin = req.headers.get("origin");
+    if (!origin) return response({ error: "Origem da aplicação não informada" }, 400);
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      customer_email: customerId ? undefined : user.email,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/pricing?success=true`,
-      cancel_url: `${req.headers.get("origin")}/pricing?canceled=true`,
+      success_url: `${origin}/pricing?success=true`,
+      cancel_url: `${origin}/pricing?canceled=true`,
     });
 
-    logStep("Checkout session created", { sessionId: session.id });
-
-    return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    logStep("Checkout session created", { userId: user.id, sessionId: session.id });
+    return response({ url: session.url }, 200);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    console.error("[CREATE-CHECKOUT] ERROR", errorMessage);
+    return response({ error: "Não foi possível criar o checkout." }, 502);
   }
 });

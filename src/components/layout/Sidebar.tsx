@@ -20,12 +20,14 @@ import {
   Bell,
   CreditCard,
   ShoppingBag,
-  ListChecks
+  ListChecks,
+  FileSearch
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +56,7 @@ const navItems = [
   { id: "pdf-reader", label: "Leitor PDF", icon: Upload },
   { id: "cases", label: "Casos", icon: FolderOpen },
   { id: "calendar", label: "Agenda", icon: Calendar },
+  { id: "publications", label: "Publicações", icon: FileSearch },
 ];
 
 const settingsSubItems = [
@@ -94,6 +97,9 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           <div>
             <h1 className="font-serif text-xl font-bold text-sidebar-foreground">LexIA</h1>
             <p className="text-xs text-sidebar-foreground/60">Assistente Jurídico</p>
+          </div>
+          <div className="ml-auto">
+            <NotificationBell onTabChange={onTabChange} className="text-sidebar-foreground hover:bg-sidebar-accent" />
           </div>
         </div>
       </div>
